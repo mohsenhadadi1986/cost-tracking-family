@@ -31,6 +31,16 @@ const createTransactionRequestProperties = {
 
 export function getOpenApiSchemas() {
   return {
+    HealthResponse: {
+      type: 'object',
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['ok'],
+        },
+      },
+    },
     Transaction: {
       type: 'object',
       required: ['id', 'date', 'category', 'type', 'amount', 'description'],

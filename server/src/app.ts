@@ -29,6 +29,22 @@ export function createApp(
   const port = Number(process.env.PORT) || 3000;
   setupOpenApiDocs(app, port);
 
+  /**
+   * @openapi
+   * /api/health:
+   *   get:
+   *     tags:
+   *       - Health
+   *     summary: Health check
+   *     description: Returns service health status.
+   *     responses:
+   *       200:
+   *         description: Service is healthy
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/HealthResponse'
+   */
   app.get('/api/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });
   });

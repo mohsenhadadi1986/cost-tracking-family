@@ -38,8 +38,12 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
 }
 
 export function getSwaggerJSDocOptions(port: number = DEFAULT_PORT) {
+  const srcDir = path.join(__dirname, '../../src');
   return {
     definition: getSwaggerDefinition(port),
-    apis: [path.join(__dirname, '../routes/*.ts')],
+    apis: [
+      path.join(srcDir, 'routes/*.ts'),
+      path.join(srcDir, 'app.ts'),
+    ],
   };
 }
