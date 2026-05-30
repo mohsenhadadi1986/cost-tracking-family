@@ -20,8 +20,14 @@ export function createOpenApiSpec(port: number = DEFAULT_PORT): object {
 export function setupOpenApiDocs(app: Express, port: number = DEFAULT_PORT): void {
   const spec = createOpenApiSpec(port);
 
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
-  app.get('/api/docs.json', (_req, res) => {
+  app.get('/api/openapi.json', (_req, res) => {
     res.json(spec);
   });
+  app.use(
+    '/api/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(undefined, {
+      swaggerOptions: { url: '/api/openapi.json' },
+    })
+  );
 }
