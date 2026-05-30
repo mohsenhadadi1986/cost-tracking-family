@@ -9,27 +9,84 @@ export function createTransactionsRouter(
   const router = Router();
 
   /**
-   * GET /api/transactions
-   * Returns all transactions for the Table tab.
-   *
-   * Response 200: Transaction[] — each item includes
-   * { id, date, category, type, amount, description }.
-   * Results are ordered by date descending, then id descending.
-   * An empty database returns 200 with [].
+   * @openapi
+   * /api/transactions:
+   *   get:
+   *     tags:
+   *       - Transactions
+   *     summary: List all transactions
+   *     description: |
+   *       Returns all transactions for the Table tab.
+   *       Results are ordered by date descending, then id descending.
+   *       An empty database returns an empty array.
+   *     responses:
+   *       200:
+   *         description: List of transactions
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Transaction'
    */
   router.get('/', (_req, res) => {
     res.status(200).json(repository.findAll());
   });
 
   /**
-   * POST /api/transactions
-   * Persists a new transaction (Insert Data tab).
-   *
-   * Request body: { date, category, type, amount, description }
-   * Client-provided id is ignored.
-   *
-   * Response 201: Transaction { id, date, category, type, amount, description }
-   * Response 400: { error: string }
+   * @openapi
+   * /api/transactions:
+   *   post:
+   *     tags:
+   *       - Transactions
+   *     summary: Create a transaction
+   *     description: |
+   *       Persists a new transaction (Insert Data tab).
+   *       Client-provided id is ignored; the server assigns the id.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateTransactionRequest'
+   *     responses:
+   *       201:
+   *         description: Transaction created
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Transaction'
+   *       400:
+   *         description: Validation error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *             examples:
+   *               missingDate:
+   *                 summary: Missing date
+   *                 value:
+   *                   error: date is required
+   *               missingDescription:
+   *                 summary: Missing description
+   *                 value:
+   *                   error: description is required
+   *               missingCategory:
+   *                 summary: Missing category
+   *                 value:
+   *                   error: category is required
+   *               invalidType:
+   *                 summary: Invalid type
+   *                 value:
+   *                   error: type must be either expense or income
+   *               invalidAmount:
+   *                 summary: Invalid amount
+   *                 value:
+   *                   error: amount must be a positive number
+   *               invalidCategory:
+   *                 summary: Invalid category
+   *                 value:
+   *                   error: "category must be one of: Food, Transport, Utilities, Entertainment, Salary, Investment"
    */
   router.post('/', (req, res) => {
     try {
