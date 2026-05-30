@@ -1,0 +1,191 @@
+import assert from 'node:assert/strict';
+import fs from 'fs';
+import { afterEach, describe, it } from 'node:test';
+import os from 'os';
+import path from 'path';
+import request from 'supertest';
+import { createApp } from '../app';
+import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
+import type Database from 'better-sqlite3';
+
+const openDatabases: Database.Database[] = [];
+const dbPaths: string[] = [];
+
+function tempDbPath(): string {
+  return path.join(os.tmpdir(), `cost-tracking-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+}
+
+function createTestApp(seed = false) {
+  const dbPath = tempDbPath();
+  dbPaths.push(dbPath);
+  const context = createApp(dbPath, { seed });
+  openDatabases.push(context.db);
+  return context;
+}
+
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
+function expectedCategoryTotals(): Record<string, number> {
+  return MOCK_TRANSACTIONS.reduce((acc, curr) => {
+    if (curr.type === 'expense') {
+      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function expectedDailyTotals(): Array<{ date: string; income: number; expense: number }> {
+  const last7Days = Array.from({ length: 7 }, (_, i) => daysAgo(6 - i));
+
+  return last7Days.map(date => {
+    const dayTransactions = MOCK_TRANSACTIONS.filter(t => t.date === date);
+    return {
+      date,
+      income: dayTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0),
+      expense: dayTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0),
+    };
+  });
+}
+
+afterEach(() => {
+  while (openDatabases.length > 0) {
+    openDatabases.pop()?.close();
+  }
+
+  while (dbPaths.length > 0) {
+    const dbPath = dbPaths.pop();
+    if (!dbPath) {
+      continue;
+    }
+
+    for (const suffix of ['', '-wal', '-shm']) {
+      const filePath = `${dbPath}${suffix}`;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  }
+});
+
+describe('Transaction API integration', () => {
+  describe('POST /api/transactions', () => {
+    it('creates a transaction and returns 201', async () => {
+      const { app } = createTestApp(false);
+
+      const payload = {
+        date: '2026-05-30',
+        category: 'Food',
+        type: 'expense',
+        amount: 12.5,
+        description: 'Integration test transaction',
+      };
+
+      const response = await request(app).post('/api/transactions').send(payload);
+
+      assert.equal(response.status, 201);
+      assert.equal(response.body.description, payload.description);
+      assert.equal(response.body.amount, payload.amount);
+      assert.equal(typeof response.body.id, 'number');
+    });
+
+    it('returns 400 for invalid type', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app)
+        .post('/api/transactions')
+        .send({
+          date: '2026-05-30',
+          category: 'Food',
+          type: 'invalid',
+          amount: 10,
+          description: 'Bad type',
+        });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /type must be either expense or income/);
+    });
+
+    it('returns 400 for non-positive amount', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app)
+        .post('/api/transactions')
+        .send({
+          date: '2026-05-30',
+          category: 'Food',
+          type: 'expense',
+          amount: 0,
+          description: 'Bad amount',
+        });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /amount must be a positive number/);
+    });
+
+    it('returns 400 for invalid category', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app)
+        .post('/api/transactions')
+        .send({
+          date: '2026-05-30',
+          category: 'Unknown',
+          type: 'expense',
+          amount: 10,
+          description: 'Bad category',
+        });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /category must be one of:/);
+    });
+  });
+
+  describe('GET /api/transactions', () => {
+    it('returns an empty array for an empty database', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app).get('/api/transactions');
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body, []);
+    });
+
+    it('returns seeded transactions ordered by date desc', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app).get('/api/transactions');
+
+      assert.equal(response.status, 200);
+      assert.equal(response.body.length, MOCK_TRANSACTIONS.length);
+
+      for (let i = 1; i < response.body.length; i++) {
+        const prev = response.body[i - 1];
+        const curr = response.body[i];
+        assert.ok(
+          prev.date >= curr.date,
+          'transactions should be ordered by date descending'
+        );
+      }
+    });
+  });
+
+  describe('GET /api/transactions/summary', () => {
+    it('returns category and daily totals for seeded data', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app).get('/api/transactions/summary');
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals());
+      assert.deepEqual(response.body.dailyTotals, expectedDailyTotals());
+    });
+  });
+});

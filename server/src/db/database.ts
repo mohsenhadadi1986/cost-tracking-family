@@ -5,7 +5,10 @@ import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
 
 const defaultDbPath = path.join(process.cwd(), 'data', 'transactions.db');
 
-export function createDatabase(dbPath = process.env.DATABASE_PATH ?? defaultDbPath): Database.Database {
+export function createDatabase(
+  dbPath = process.env.DATABASE_PATH ?? defaultDbPath,
+  options: { seed?: boolean } = {}
+): Database.Database {
   const directory = path.dirname(dbPath);
   fs.mkdirSync(directory, { recursive: true });
 
@@ -23,7 +26,9 @@ export function createDatabase(dbPath = process.env.DATABASE_PATH ?? defaultDbPa
     )
   `);
 
-  seedIfEmpty(db);
+  if (options.seed !== false) {
+    seedIfEmpty(db);
+  }
 
   return db;
 }
