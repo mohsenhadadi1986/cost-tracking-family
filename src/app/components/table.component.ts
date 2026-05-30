@@ -8,6 +8,9 @@ import { TransactionService } from '../services/transaction.service';
   imports: [CommonModule],
   template: `
     <h2 class="page-title">Transactions</h2>
+    <div *ngIf="loadError()" class="card status-banner status-error">
+      {{ loadError() }}
+    </div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -20,7 +23,10 @@ import { TransactionService } from '../services/transaction.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngIf="transactions().length === 0">
+          <tr *ngIf="loading()">
+            <td colspan="5" class="empty-state">Loading transactions…</td>
+          </tr>
+          <tr *ngIf="!loading() && !loadError() && transactions().length === 0">
             <td colspan="5" class="empty-state">
               No transactions yet. Add one in the Insert Data tab.
             </td>
@@ -45,6 +51,8 @@ import { TransactionService } from '../services/transaction.service';
 })
 export class TableComponent {
   transactions = this.transactionService.getTransactions();
+  loading = this.transactionService.getLoading();
+  loadError = this.transactionService.getLoadError();
 
   constructor(private transactionService: TransactionService) {}
 }

@@ -10,7 +10,11 @@ import { TransactionService } from '../services/transaction.service';
   providers: [CurrencyPipe],
   template: `
     <h2 class="page-title">Overview</h2>
-    <div class="charts-container">
+    <div *ngIf="loadError()" class="card status-banner status-error">
+      {{ loadError() }}
+    </div>
+    <div *ngIf="loading()" class="card empty-state">Loading overview…</div>
+    <div class="charts-container" *ngIf="!loading()">
       <div class="chart-wrapper">
         <h3>Expense Distribution</h3>
         <canvas *ngIf="hasExpenseData()"
@@ -37,6 +41,8 @@ import { TransactionService } from '../services/transaction.service';
 })
 export class VisualizationComponent {
   transactions = this.transactionService.getTransactions();
+  loading = this.transactionService.getLoading();
+  loadError = this.transactionService.getLoadError();
 
   hasExpenseData = computed(() => {
     this.transactions();
