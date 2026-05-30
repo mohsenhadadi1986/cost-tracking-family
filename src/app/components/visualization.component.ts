@@ -13,11 +13,15 @@ import { TransactionService } from '../services/transaction.service';
     <div class="charts-container">
       <div class="chart-wrapper">
         <h3>Expense Distribution</h3>
-        <canvas baseChart
+        <canvas *ngIf="hasExpenseData"
+          baseChart
           [data]="pieChartData"
           [type]="'pie'"
           [options]="pieChartOptions">
         </canvas>
+        <div *ngIf="!hasExpenseData" class="empty-state">
+          No expense data yet. Add expense transactions in the Insert Data tab.
+        </div>
       </div>
       
       <div class="chart-wrapper">
@@ -44,6 +48,8 @@ export class VisualizationComponent implements OnInit {
   updateCharts() {
     const categoryTotals = this.transactionService.getCategoryTotals();
     const dailyTotals = this.transactionService.getDailyTotals();
+
+    this.hasExpenseData = Object.keys(categoryTotals).length > 0;
 
     this.pieChartData = {
       labels: Object.keys(categoryTotals),
@@ -74,6 +80,7 @@ export class VisualizationComponent implements OnInit {
     };
   }
 
+  hasExpenseData = false;
   pieChartData: any = { labels: [], datasets: [{ data: [], backgroundColor: [] }] };
   pieChartOptions = {
     responsive: true,
