@@ -61,15 +61,16 @@ export class InsertDataComponent {
   constructor(private transactionService: TransactionService) {}
 
   onSubmit() {
-    this.transactionService.addTransaction(this.newTransaction);
-    
-    // Reset form
-    this.newTransaction = {
-      date: new Date().toISOString().split('T')[0],
-      category: '',
-      type: 'expense' as const,
-      amount: 0,
-      description: ''
-    };
+    this.transactionService.addTransaction(this.newTransaction).subscribe({
+      next: () => {
+        this.newTransaction = {
+          date: new Date().toISOString().split('T')[0],
+          category: '',
+          type: 'expense' as const,
+          amount: 0,
+          description: ''
+        };
+      }
+    });
   }
 }

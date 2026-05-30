@@ -1,3 +1,4 @@
+import { provideHttpClient } from '@angular/common/http';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -40,5 +41,5 @@ export class App {
 }
 
 bootstrapApplication(App, {
-  providers: []
+  providers: [provideHttpClient()]
 });
