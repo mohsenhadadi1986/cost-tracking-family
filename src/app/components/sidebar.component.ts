@@ -7,17 +7,16 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="sidebar">
+    <details
+      class="sidebar sidebar-panel"
+      [open]="filtersOpen"
+      (toggle)="onFiltersToggle($event)">
+      <summary class="sidebar-toggle">Filters</summary>
+
       <h2 class="sidebar-title">Family Expenses</h2>
       <p class="sidebar-subtitle">Filter transactions</p>
 
-      <details
-        class="sidebar-panel"
-        [open]="filtersOpen"
-        (toggle)="onFiltersToggle($event)">
-        <summary class="sidebar-toggle">Filters</summary>
-
-        <div class="select-container">
+      <div class="select-container">
         <label>Date Range</label>
         <input type="date" [(ngModel)]="startDate">
         <input type="date" [(ngModel)]="endDate">
@@ -41,9 +40,8 @@ import { FormsModule } from '@angular/forms';
         </select>
       </div>
 
-        <button (click)="applyFilters()">Apply Filters</button>
-      </details>
-    </div>
+      <button type="button" (click)="applyFilters()">Apply Filters</button>
+    </details>
   `
 })
 export class SidebarComponent implements OnInit, OnDestroy {
