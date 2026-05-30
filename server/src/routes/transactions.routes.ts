@@ -108,14 +108,52 @@ export function createTransactionsRouter(
   });
 
   /**
-   * GET /api/transactions/summary
-   * Returns chart aggregates for the Visualization tab.
-   *
-   * Response 200:
-   * {
-   *   categoryTotals: { [category: string]: number },
-   *   dailyTotals: [{ date: string, income: number, expense: number }]
-   * }
+   * @openapi
+   * /api/transactions/summary:
+   *   get:
+   *     tags:
+   *       - Transactions
+   *     summary: Get transaction summary aggregates
+   *     description: |
+   *       Returns chart aggregates for the Visualization tab.
+   *       `categoryTotals` sums expense amounts per category.
+   *       `dailyTotals` covers the last 7 calendar days (oldest to newest),
+   *       with zero-filled days when there is no activity.
+   *     responses:
+   *       200:
+   *         description: Category and daily aggregates
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/TransactionSummaryResponse'
+   *             example:
+   *               categoryTotals:
+   *                 Food: 299.8
+   *                 Transport: 295.5
+   *                 Utilities: 342
+   *                 Entertainment: 200
+   *               dailyTotals:
+   *                 - date: "2026-05-24"
+   *                   income: 220
+   *                   expense: 76.4
+   *                 - date: "2026-05-25"
+   *                   income: 75
+   *                   expense: 242
+   *                 - date: "2026-05-26"
+   *                   income: 350
+   *                   expense: 129.9
+   *                 - date: "2026-05-27"
+   *                   income: 0
+   *                   expense: 179.5
+   *                 - date: "2026-05-28"
+   *                   income: 150
+   *                   expense: 83.25
+   *                 - date: "2026-05-29"
+   *                   income: 0
+   *                   expense: 258.75
+   *                 - date: "2026-05-30"
+   *                   income: 4200
+   *                   expense: 167.5
    */
   router.get('/summary', (_req, res) => {
     res.status(200).json(summaryService.getSummary());
