@@ -4,7 +4,11 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build"
+    "build": "ng build",
+    "server:dev": "npm run dev --prefix server",
+    "server:build": "npm run build --prefix server",
+    "server:start": "npm run start --prefix server",
+    "dev": "concurrently -n web,api -c blue,green \"npm start\" \"npm run server:dev\""
   },
   "dependencies": {
     "@angular/animations": "^18.1.0",
@@ -25,6 +29,7 @@
     "@angular-devkit/build-angular": "^18.1.0",
     "@angular/cli": "^18.1.0",
     "@angular/compiler-cli": "^18.1.0",
+    "concurrently": "^9.1.0",
     "typescript": "~5.5.0"
   }
 }
