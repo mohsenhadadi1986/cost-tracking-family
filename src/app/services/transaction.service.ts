@@ -1,11 +1,29 @@
 import { Injectable, signal } from '@angular/core';
 import { Transaction } from '../models/transaction.model';
+import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TransactionService {
   private transactions = signal<Transaction[]>([]);
+
+  constructor() {
+    this.loadMockData();
+  }
+
+  loadMockData() {
+    if (this.transactions().length > 0) {
+      return;
+    }
+
+    this.transactions.set(
+      MOCK_TRANSACTIONS.map((transaction, index) => ({
+        ...transaction,
+        id: index + 1
+      }))
+    );
+  }
 
   addTransaction(transaction: Omit<Transaction, 'id'>) {
     const newTransaction = {
