@@ -1,8 +1,13 @@
 import cors from 'cors';
 import express from 'express';
 import { createDatabase } from './db/database';
+import { TransactionRepository } from './repositories/transaction.repository';
+import { createTransactionsRouter } from './routes/transactions.routes';
+import { TransactionSummaryService } from './services/transaction-summary.service';
 
-createDatabase();
+const db = createDatabase();
+const transactionRepository = new TransactionRepository(db);
+const transactionSummaryService = new TransactionSummaryService(transactionRepository);
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -14,6 +19,8 @@ app.use(express.json());
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+app.use('/api/transactions', createTransactionsRouter(transactionSummaryService));
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
