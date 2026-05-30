@@ -250,6 +250,19 @@ tbody tr:last-child td {
   padding: var(--space-lg) !important;
 }
 
+.status-banner {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius);
+  font-size: 0.9375rem;
+}
+
+.status-error {
+  background-color: #fee2e2;
+  color: var(--color-expense);
+  border: 1px solid #fecaca;
+}
+
 .form-group {
   margin-bottom: var(--space-md);
 }
@@ -276,6 +289,15 @@ button {
 
 button:hover {
   background-color: var(--color-primary-hover);
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background-color: var(--color-primary);
 }
 
 button:focus-visible {

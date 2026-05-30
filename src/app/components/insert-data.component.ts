@@ -10,15 +10,18 @@ import { TransactionService } from '../services/transaction.service';
   imports: [CommonModule, FormsModule],
   template: `
     <h2 class="page-title">Add Transaction</h2>
-    <form class="card form-card" (submit)="onSubmit()">
+    <div *ngIf="submitError()" class="card status-banner status-error form-card">
+      {{ submitError() }}
+    </div>
+    <form class="card form-card" (ngSubmit)="onSubmit()">
       <div class="form-group">
         <label>Date</label>
-        <input type="date" [(ngModel)]="newTransaction.date" name="date" required>
+        <input type="date" [(ngModel)]="newTransaction.date" name="date" required [disabled]="submitting()">
       </div>
 
       <div class="form-group">
         <label>Category</label>
-        <select [(ngModel)]="newTransaction.category" name="category" required>
+        <select [(ngModel)]="newTransaction.category" name="category" required [disabled]="submitting()">
           <option *ngFor="let category of categories" [value]="category">
             {{category}}
           </option>
@@ -27,7 +30,7 @@ import { TransactionService } from '../services/transaction.service';
 
       <div class="form-group">
         <label>Type</label>
-        <select [(ngModel)]="newTransaction.type" name="type" required>
+        <select [(ngModel)]="newTransaction.type" name="type" required [disabled]="submitting()">
           <option value="expense">Expense</option>
           <option value="income">Income</option>
         </select>
@@ -35,20 +38,24 @@ import { TransactionService } from '../services/transaction.service';
 
       <div class="form-group">
         <label>Amount</label>
-        <input type="number" [(ngModel)]="newTransaction.amount" name="amount" required min="0">
+        <input type="number" [(ngModel)]="newTransaction.amount" name="amount" required min="0" [disabled]="submitting()">
       </div>
 
       <div class="form-group">
         <label>Description</label>
-        <input type="text" [(ngModel)]="newTransaction.description" name="description" required>
+        <input type="text" [(ngModel)]="newTransaction.description" name="description" required [disabled]="submitting()">
       </div>
 
-      <button type="submit">Add Transaction</button>
+      <button type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Adding…' : 'Add Transaction' }}
+      </button>
     </form>
   `
 })
 export class InsertDataComponent {
   categories = [...TRANSACTION_CATEGORIES];
+  submitting = this.transactionService.getSubmitting();
+  submitError = this.transactionService.getSubmitError();
   
   newTransaction = {
     date: new Date().toISOString().split('T')[0],

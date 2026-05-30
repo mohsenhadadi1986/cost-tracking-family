@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
 import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
@@ -17,39 +17,63 @@ export class TransactionService {
   private transactions = signal<Transaction[]>([]);
   private categoryTotals = signal<Record<string, number>>({});
   private dailyTotals = signal<DailyTotal[]>([]);
+  private loading = signal(true);
+  private loadError = signal<string | null>(null);
+  private submitting = signal(false);
+  private submitError = signal<string | null>(null);
 
   constructor() {
     this.loadTransactions().subscribe();
   }
 
   loadTransactions(): Observable<Transaction[]> {
-    if (environment.useMockTransactions && !environment.production) {
-      return this.loadMockTransactions();
-    }
+    this.loading.set(true);
+    this.loadError.set(null);
 
-    return this.http.get<Transaction[]>(this.transactionsUrl).pipe(
-      tap(transactions => {
-        this.transactions.set(transactions);
-        this.refreshSummary().subscribe();
+    const source$ =
+      environment.useMockTransactions && !environment.production
+        ? this.loadMockTransactions()
+        : this.http.get<Transaction[]>(this.transactionsUrl).pipe(
+            tap(transactions => {
+              this.transactions.set(transactions);
+              this.refreshSummary().subscribe();
+            })
+          );
+
+    return source$.pipe(
+      catchError(error => {
+        this.loadError.set(toUserFriendlyMessage(error));
+        return of([]);
       }),
-      catchError(error => throwError(() => error))
+      finalize(() => this.loading.set(false))
     );
   }
 
   addTransaction(transaction: Omit<Transaction, 'id'>): Observable<Transaction> {
-    if (environment.useMockTransactions && !environment.production) {
-      const created: Transaction = { ...transaction, id: Date.now() };
-      this.transactions.update(prev => [created, ...prev]);
-      this.applySummaryFromTransactions();
-      return of(created);
-    }
+    this.submitting.set(true);
+    this.submitError.set(null);
 
-    return this.http.post<Transaction>(this.transactionsUrl, transaction).pipe(
-      tap(created => {
-        this.transactions.update(prev => [created, ...prev]);
-        this.refreshSummary().subscribe();
+    const source$ =
+      environment.useMockTransactions && !environment.production
+        ? (() => {
+            const created: Transaction = { ...transaction, id: Date.now() };
+            this.transactions.update(prev => [created, ...prev]);
+            this.applySummaryFromTransactions();
+            return of(created);
+          })()
+        : this.http.post<Transaction>(this.transactionsUrl, transaction).pipe(
+            tap(created => {
+              this.transactions.update(prev => [created, ...prev]);
+              this.refreshSummary().subscribe();
+            })
+          );
+
+    return source$.pipe(
+      catchError(error => {
+        this.submitError.set(toUserFriendlyMessage(error));
+        return throwError(() => error);
       }),
-      catchError(error => throwError(() => error))
+      finalize(() => this.submitting.set(false))
     );
   }
 
@@ -65,6 +89,22 @@ export class TransactionService {
   getDailyTotals() {
     this.transactions();
     return this.dailyTotals();
+  }
+
+  getLoading() {
+    return this.loading.asReadonly();
+  }
+
+  getLoadError() {
+    return this.loadError.asReadonly();
+  }
+
+  getSubmitting() {
+    return this.submitting.asReadonly();
+  }
+
+  getSubmitError() {
+    return this.submitError.asReadonly();
   }
 
   private loadMockTransactions(): Observable<Transaction[]> {
@@ -97,6 +137,27 @@ export class TransactionService {
     this.categoryTotals.set(computeCategoryTotals(this.transactions()));
     this.dailyTotals.set(computeDailyTotals(this.transactions()));
   }
+}
+
+function toUserFriendlyMessage(error: unknown): string {
+  if (error instanceof HttpErrorResponse) {
+    if (error.status === 0) {
+      return 'Unable to reach the server. Check your connection and try again.';
+    }
+
+    const body = error.error;
+    if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') {
+      return body.message;
+    }
+
+    if (typeof body === 'string' && body.length > 0) {
+      return body;
+    }
+
+    return `Something went wrong (${error.status}). Please try again.`;
+  }
+
+  return 'Something went wrong. Please try again.';
 }
 
 function computeCategoryTotals(transactions: Transaction[]): Record<string, number> {
