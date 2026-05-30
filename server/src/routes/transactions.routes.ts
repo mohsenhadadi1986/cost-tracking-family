@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import type { TransactionRepository } from '../repositories/transaction.repository';
+import { TransactionSummaryService } from '../services/transaction-summary.service';
 
 export function createTransactionsRouter(
-  repository: TransactionRepository
+  repository: TransactionRepository,
+  summaryService: TransactionSummaryService
 ): Router {
   const router = Router();
 
@@ -46,6 +48,20 @@ export function createTransactionsRouter(
         error: error instanceof Error ? error.message : 'Invalid transaction',
       });
     }
+  });
+
+  /**
+   * GET /api/transactions/summary
+   * Returns chart aggregates for the Visualization tab.
+   *
+   * Response 200:
+   * {
+   *   categoryTotals: { [category: string]: number },
+   *   dailyTotals: [{ date: string, income: number, expense: number }]
+   * }
+   */
+  router.get('/summary', (_req, res) => {
+    res.status(200).json(summaryService.getSummary());
   });
 
   return router;

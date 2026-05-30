@@ -3,9 +3,11 @@ import express from 'express';
 import { createDatabase } from './db/database';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { createTransactionsRouter } from './routes/transactions.routes';
+import { TransactionSummaryService } from './services/transaction-summary.service';
 
 const db = createDatabase();
 const transactionRepository = new TransactionRepository(db);
+const transactionSummaryService = new TransactionSummaryService(transactionRepository);
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -18,7 +20,10 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/api/transactions', createTransactionsRouter(transactionRepository));
+app.use(
+  '/api/transactions',
+  createTransactionsRouter(transactionRepository, transactionSummaryService)
+);
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
