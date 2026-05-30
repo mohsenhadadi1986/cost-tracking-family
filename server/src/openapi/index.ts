@@ -11,6 +11,7 @@ export {
   getServerUrl,
   getSwaggerDefinition,
 } from './openapi.config';
+export { getOpenApiSchemas } from './schemas';
 
 export function createOpenApiSpec(port: number = DEFAULT_PORT): object {
   return swaggerJSDoc(getSwaggerJSDocOptions(port));

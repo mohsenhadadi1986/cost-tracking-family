@@ -1,4 +1,5 @@
 import path from 'path';
+import { getOpenApiSchemas } from './schemas';
 
 export const API_TITLE = 'Cost Tracking Family API';
 export const API_VERSION = '1.0.0';
@@ -29,6 +30,9 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
       { name: 'Health', description: 'Service health checks' },
       { name: 'Transactions', description: 'Transaction CRUD and summaries' },
     ],
+    components: {
+      schemas: getOpenApiSchemas(),
+    },
     paths: {},
   };
 }
