@@ -1,10 +1,12 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { Component } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
 import { InsertDataComponent } from './app/components/insert-data.component';
 import { SidebarComponent } from './app/components/sidebar.component';
+import { ApiHealthService } from './app/services/api-health.service';
 
 @Component({
   selector: 'app-root',
@@ -34,11 +36,20 @@ import { SidebarComponent } from './app/components/sidebar.component';
     </div>
   `
 })
-export class App {
+export class App implements OnInit {
   tabs = ['Table', 'Visualization', 'Insert Data'];
   activeTab = 'Table';
+
+  private readonly apiHealth = inject(ApiHealthService);
+
+  ngOnInit() {
+    this.apiHealth.check().subscribe({
+      next: (response) => console.log('[API proxy smoke test]', response),
+      error: (error) => console.warn('[API proxy smoke test] failed', error),
+    });
+  }
 }
 
 bootstrapApplication(App, {
-  providers: []
+  providers: [provideHttpClient()],
 });
