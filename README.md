@@ -54,6 +54,24 @@ npm run server:build
 npm run server:start
 ```
 
+## API documentation (OpenAPI / Swagger UI)
+
+Interactive API documentation is served by the Express backend:
+
+| Resource | Path | Direct API URL (`npm run dev` → port 3000) |
+|----------|------|---------------------------------------------|
+| Swagger UI | `/api/docs` | http://localhost:3000/api/docs |
+| OpenAPI spec (JSON) | `/api/openapi.json` | http://localhost:3000/api/openapi.json |
+
+When you use `npm run dev`, the Angular dev server proxies every `/api` request (including docs) to the backend. Open the same paths on port **4200**:
+
+- Swagger UI: http://localhost:4200/api/docs
+- OpenAPI JSON: http://localhost:4200/api/openapi.json
+
+The proxy rule in [`proxy.conf.json`](proxy.conf.json) matches all `/api` subpaths, so no separate proxy entries are required for these routes.
+
+Swagger UI and the OpenAPI spec are the canonical, up-to-date API reference. The [REST API](#rest-api) section below keeps curl-oriented examples for quick manual testing.
+
 ## SQLite data storage
 
 When the API starts, it creates a SQLite database if one does not exist and seeds it with mock transactions when the table is empty.
@@ -92,7 +110,9 @@ Allowed categories: `Food`, `Transport`, `Utilities`, `Entertainment`, `Salary`,
 
 ## REST API
 
-Base URL: `http://localhost:3000` (or your `PORT`).
+Base URL: `http://localhost:3000` (or your `PORT`). With `npm run dev`, use `http://localhost:4200/api/...` instead — the dev-server proxy forwards to the backend.
+
+For full endpoint schemas, request/response models, and try-it-out requests, use [Swagger UI](#api-documentation-openapi--swagger-ui) (`/api/docs`) or download the spec from `/api/openapi.json`.
 
 All request and response bodies are JSON. The API enables CORS for `http://localhost:4200` during local development.
 
