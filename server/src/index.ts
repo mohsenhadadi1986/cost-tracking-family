@@ -20,7 +20,10 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use('/api/transactions', createTransactionsRouter(transactionSummaryService));
+app.use(
+  '/api/transactions',
+  createTransactionsRouter(transactionRepository, transactionSummaryService)
+);
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
