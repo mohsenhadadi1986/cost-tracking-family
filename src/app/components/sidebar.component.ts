@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -8,7 +8,16 @@ import { FormsModule } from '@angular/forms';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="sidebar">
-      <div class="select-container">
+      <h2 class="sidebar-title">Family Expenses</h2>
+      <p class="sidebar-subtitle">Filter transactions</p>
+
+      <details
+        class="sidebar-panel"
+        [open]="filtersOpen"
+        (toggle)="onFiltersToggle($event)">
+        <summary class="sidebar-toggle">Filters</summary>
+
+        <div class="select-container">
         <label>Date Range</label>
         <input type="date" [(ngModel)]="startDate">
         <input type="date" [(ngModel)]="endDate">
@@ -32,16 +41,36 @@ import { FormsModule } from '@angular/forms';
         </select>
       </div>
 
-      <button (click)="applyFilters()">Apply Filters</button>
+        <button (click)="applyFilters()">Apply Filters</button>
+      </details>
     </div>
   `
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit, OnDestroy {
   categories = ['Food', 'Transport', 'Utilities', 'Entertainment', 'Salary', 'Investment'];
   startDate = '';
   endDate = '';
   selectedCategories: string[] = [];
   selectedType = 'all';
+  filtersOpen = true;
+
+  private mobileQuery = window.matchMedia('(max-width: 768px)');
+  private readonly onMobileChange = (event: MediaQueryListEvent) => {
+    this.filtersOpen = !event.matches;
+  };
+
+  ngOnInit() {
+    this.filtersOpen = !this.mobileQuery.matches;
+    this.mobileQuery.addEventListener('change', this.onMobileChange);
+  }
+
+  ngOnDestroy() {
+    this.mobileQuery.removeEventListener('change', this.onMobileChange);
+  }
+
+  onFiltersToggle(event: Event) {
+    this.filtersOpen = (event.target as HTMLDetailsElement).open;
+  }
 
   applyFilters() {
     // TODO: Implement filtering logic

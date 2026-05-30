@@ -7,26 +7,40 @@ import { TransactionService } from '../services/transaction.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Category</th>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let transaction of transactions()">
-          <td>{{transaction.date | date:'mediumDate'}}</td>
-          <td>{{transaction.category}}</td>
-          <td>{{transaction.type}}</td>
-          <td>{{transaction.amount | currency}}</td>
-          <td>{{transaction.description}}</td>
-        </tr>
-      </tbody>
-    </table>
+    <h2 class="page-title">Transactions</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="transactions().length === 0">
+            <td colspan="5" class="empty-state">
+              No transactions yet. Add one in the Insert Data tab.
+            </td>
+          </tr>
+          <tr *ngFor="let transaction of transactions()">
+            <td data-label="Date">{{transaction.date | date:'mediumDate'}}</td>
+            <td data-label="Category">{{transaction.category}}</td>
+            <td data-label="Type">
+              <span class="type-badge" [class.income]="transaction.type === 'income'" [class.expense]="transaction.type === 'expense'">
+                {{transaction.type}}
+              </span>
+            </td>
+            <td data-label="Amount" [class.amount-income]="transaction.type === 'income'" [class.amount-expense]="transaction.type === 'expense'">
+              {{transaction.amount | currency}}
+            </td>
+            <td data-label="Description">{{transaction.description}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   `
 })
 export class TableComponent {
