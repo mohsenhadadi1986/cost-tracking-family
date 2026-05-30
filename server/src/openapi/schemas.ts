@@ -63,8 +63,14 @@ export function getOpenApiSchemas() {
           format: 'date',
           description: 'ISO date string (YYYY-MM-DD)',
         },
-        income: { type: 'number' },
-        expense: { type: 'number' },
+        income: {
+          type: 'number',
+          description: 'Total income for the day',
+        },
+        expense: {
+          type: 'number',
+          description: 'Total expense for the day',
+        },
       },
     },
     TransactionSummaryResponse: {
