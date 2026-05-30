@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TRANSACTION_CATEGORIES } from '../constants/categories';
 
 @Component({
   selector: 'app-sidebar',
@@ -45,7 +46,7 @@ import { FormsModule } from '@angular/forms';
   `
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  categories = ['Food', 'Transport', 'Utilities', 'Entertainment', 'Salary', 'Investment'];
+  categories = [...TRANSACTION_CATEGORIES];
   startDate = '';
   endDate = '';
   selectedCategories: string[] = [];
