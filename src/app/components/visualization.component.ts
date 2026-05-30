@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { NgChartsModule } from 'ng2-charts';
 import { TransactionService } from '../services/transaction.service';
@@ -13,13 +13,13 @@ import { TransactionService } from '../services/transaction.service';
     <div class="charts-container">
       <div class="chart-wrapper">
         <h3>Expense Distribution</h3>
-        <canvas *ngIf="hasExpenseData"
+        <canvas *ngIf="hasExpenseData()"
           baseChart
-          [data]="pieChartData"
+          [data]="pieChartData()"
           [type]="'pie'"
           [options]="pieChartOptions">
         </canvas>
-        <div *ngIf="!hasExpenseData" class="empty-state">
+        <div *ngIf="!hasExpenseData()" class="empty-state">
           No expense data yet. Add expense transactions in the Insert Data tab.
         </div>
       </div>
@@ -27,7 +27,7 @@ import { TransactionService } from '../services/transaction.service';
       <div class="chart-wrapper">
         <h3>Daily Income vs Expenses</h3>
         <canvas baseChart
-          [data]="lineChartData"
+          [data]="lineChartData()"
           [type]="'line'"
           [options]="lineChartOptions">
         </canvas>
@@ -35,31 +35,30 @@ import { TransactionService } from '../services/transaction.service';
     </div>
   `
 })
-export class VisualizationComponent implements OnInit {
-  constructor(
-    private transactionService: TransactionService,
-    private currencyPipe: CurrencyPipe
-  ) {}
+export class VisualizationComponent {
+  transactions = this.transactionService.getTransactions();
 
-  ngOnInit() {
-    this.updateCharts();
-  }
+  hasExpenseData = computed(() => {
+    this.transactions();
+    return Object.keys(this.transactionService.getCategoryTotals()).length > 0;
+  });
 
-  updateCharts() {
+  pieChartData = computed(() => {
+    this.transactions();
     const categoryTotals = this.transactionService.getCategoryTotals();
-    const dailyTotals = this.transactionService.getDailyTotals();
-
-    this.hasExpenseData = Object.keys(categoryTotals).length > 0;
-
-    this.pieChartData = {
+    return {
       labels: Object.keys(categoryTotals),
       datasets: [{
         data: Object.values(categoryTotals),
         backgroundColor: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#1e40af']
       }]
     };
+  });
 
-    this.lineChartData = {
+  lineChartData = computed(() => {
+    this.transactions();
+    const dailyTotals = this.transactionService.getDailyTotals();
+    return {
       labels: dailyTotals.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
       datasets: [
         {
@@ -78,10 +77,12 @@ export class VisualizationComponent implements OnInit {
         }
       ]
     };
-  }
+  });
 
-  hasExpenseData = false;
-  pieChartData: any = { labels: [], datasets: [{ data: [], backgroundColor: [] }] };
+  constructor(
+    private transactionService: TransactionService,
+    private currencyPipe: CurrencyPipe
+  ) {}
   pieChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -103,7 +104,6 @@ export class VisualizationComponent implements OnInit {
     }
   };
 
-  lineChartData: any = { labels: [], datasets: [] };
   lineChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
