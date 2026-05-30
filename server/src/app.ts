@@ -3,6 +3,7 @@ import express, { Express } from 'express';
 import type Database from 'better-sqlite3';
 import { createDatabase } from './db/database';
 import { TransactionRepository } from './repositories/transaction.repository';
+import { setupOpenApiDocs } from './openapi';
 import { createTransactionsRouter } from './routes/transactions.routes';
 import { TransactionSummaryService } from './services/transaction-summary.service';
 
@@ -24,6 +25,9 @@ export function createApp(
 
   app.use(cors({ origin: angularDevOrigin }));
   app.use(express.json());
+
+  const port = Number(process.env.PORT) || 3000;
+  setupOpenApiDocs(app, port);
 
   app.get('/api/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });
