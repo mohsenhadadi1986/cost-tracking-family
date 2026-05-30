@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { NgChartsModule } from 'ng2-charts';
 import { TransactionService } from '../services/transaction.service';
 
@@ -7,6 +7,7 @@ import { TransactionService } from '../services/transaction.service';
   selector: 'app-visualization',
   standalone: true,
   imports: [CommonModule, NgChartsModule],
+  providers: [CurrencyPipe],
   template: `
     <h2 class="page-title">Overview</h2>
     <div class="charts-container">
@@ -31,7 +32,10 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class VisualizationComponent implements OnInit {
-  constructor(private transactionService: TransactionService) {}
+  constructor(
+    private transactionService: TransactionService,
+    private currencyPipe: CurrencyPipe
+  ) {}
 
   ngOnInit() {
     this.updateCharts();
@@ -77,6 +81,17 @@ export class VisualizationComponent implements OnInit {
     plugins: {
       legend: {
         position: 'bottom' as const
+      },
+      tooltip: {
+        callbacks: {
+          label: (context: { label?: string; parsed: number; dataset: { data: number[] } }) => {
+            const value = context.parsed;
+            const total = (context.dataset.data as number[]).reduce((sum, n) => sum + n, 0);
+            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+            const formatted = this.currencyPipe.transform(value) ?? String(value);
+            return `${formatted} (${percentage}%)`;
+          }
+        }
       }
     }
   };
