@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
@@ -47,7 +48,7 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class InsertDataComponent {
-  categories = ['Food', 'Transport', 'Utilities', 'Entertainment', 'Salary', 'Investment'];
+  categories = [...TRANSACTION_CATEGORIES];
   
   newTransaction = {
     date: new Date().toISOString().split('T')[0],
