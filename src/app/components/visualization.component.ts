@@ -8,6 +8,7 @@ import { TransactionService } from '../services/transaction.service';
   standalone: true,
   imports: [CommonModule, NgChartsModule],
   template: `
+    <h2 class="page-title">Overview</h2>
     <div class="charts-container">
       <div class="chart-wrapper">
         <h3>Expense Distribution</h3>
@@ -27,25 +28,7 @@ import { TransactionService } from '../services/transaction.service';
         </canvas>
       </div>
     </div>
-  `,
-  styles: [`
-    .charts-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .chart-wrapper {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    h3 {
-      text-align: center;
-      margin-bottom: 15px;
-    }
-  `]
+  `
 })
 export class VisualizationComponent implements OnInit {
   constructor(private transactionService: TransactionService) {}
@@ -62,7 +45,7 @@ export class VisualizationComponent implements OnInit {
       labels: Object.keys(categoryTotals),
       datasets: [{
         data: Object.values(categoryTotals),
-        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+        backgroundColor: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#1d4ed8', '#1e40af']
       }]
     };
 
@@ -72,14 +55,14 @@ export class VisualizationComponent implements OnInit {
         {
           label: 'Income',
           data: dailyTotals.map(d => d.income),
-          borderColor: '#4BC0C0',
+          borderColor: '#059669',
           tension: 0.1,
           fill: false
         },
         {
           label: 'Expenses',
           data: dailyTotals.map(d => d.expense),
-          borderColor: '#FF6384',
+          borderColor: '#dc2626',
           tension: 0.1,
           fill: false
         }
@@ -90,6 +73,7 @@ export class VisualizationComponent implements OnInit {
   pieChartData: any = { labels: [], datasets: [{ data: [], backgroundColor: [] }] };
   pieChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'bottom' as const
@@ -100,6 +84,7 @@ export class VisualizationComponent implements OnInit {
   lineChartData: any = { labels: [], datasets: [] };
   lineChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'bottom' as const
@@ -114,6 +99,10 @@ export class VisualizationComponent implements OnInit {
         }
       },
       x: {
+        ticks: {
+          maxRotation: 45,
+          autoSkip: true
+        },
         title: {
           display: true,
           text: 'Date'

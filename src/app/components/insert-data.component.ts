@@ -8,7 +8,8 @@ import { TransactionService } from '../services/transaction.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <form (submit)="onSubmit()">
+    <h2 class="page-title">Add Transaction</h2>
+    <form class="card form-card" (submit)="onSubmit()">
       <div class="form-group">
         <label>Date</label>
         <input type="date" [(ngModel)]="newTransaction.date" name="date" required>
