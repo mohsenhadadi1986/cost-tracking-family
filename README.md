@@ -54,6 +54,31 @@ npm run server:build
 npm run server:start
 ```
 
+## Branding
+
+Logo and favicon files live in [`src/assets/branding/`](src/assets/branding/). The Angular build copies everything under `src/assets/` to `/assets/` at deploy time (see [`angular.json`](angular.json)).
+
+| File | Purpose |
+|------|---------|
+| `logo.svg` | Full lockup (mark + wordmark) |
+| `logo-mark.svg` | Icon-only mark |
+| `favicon-32.png` | Browser tab favicon (32×32) |
+| `favicon-180.png` | Apple touch icon (180×180) |
+
+**Canonical display name:** use **Family Expense Manager** in the HTML `<title>` ([`src/index.html`](src/index.html)) and anywhere the app name appears in the UI (including logo `alt` text).
+
+**In-app logos:** prefer [`AppLogoComponent`](src/app/components/ui/app-logo.component.ts) (`<app-logo>`) over raw `<img>` tags. It maps variants to the correct asset, applies consistent sizing (`sm` / `md` / `lg`), and supports accessibility via `alt` and `decorative` inputs.
+
+| Use | When |
+|-----|------|
+| `<app-logo variant="full" …>` | Headers and primary branding (wordmark lockup) |
+| `<app-logo variant="mark" …>` | Compact spaces (e.g. mobile filter toggle) |
+| Raw SVG/PNG paths | Only outside Angular templates (e.g. static HTML, external docs) |
+
+Set `[decorative]="true"` when visible text beside the logo already names the app; otherwise provide a meaningful `alt` (default: `Family Expenses`).
+
+**Updating favicons:** replace the PNG files in `src/assets/branding/`, then confirm the `<link rel="icon">` and `<link rel="apple-touch-icon">` entries in [`src/index.html`](src/index.html) still point at `/assets/branding/favicon-32.png` and `/assets/branding/favicon-180.png`. Hard-refresh the browser to verify.
+
 ## API documentation (OpenAPI / Swagger UI)
 
 Interactive API documentation is served by the Express backend:
