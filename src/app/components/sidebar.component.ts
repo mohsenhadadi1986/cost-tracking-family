@@ -5,6 +5,7 @@ import { ButtonComponent } from './ui/button.component';
 import { CategoryMultiSelectComponent } from './ui/category-multi-select.component';
 import { DateRangeFieldComponent } from './ui/date-range-field.component';
 import { TransactionTypeFilterComponent } from './ui/transaction-type-filter.component';
+import { AppLogoComponent } from './ui/app-logo.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionFilter, TransactionTypeFilter } from '../models/transaction-filter.model';
 import { TransactionService } from '../services/transaction.service';
@@ -18,7 +19,8 @@ import { TransactionService } from '../services/transaction.service';
     ButtonComponent,
     CategoryMultiSelectComponent,
     DateRangeFieldComponent,
-    TransactionTypeFilterComponent
+    TransactionTypeFilterComponent,
+    AppLogoComponent
   ],
   template: `
     <details
@@ -31,7 +33,9 @@ import { TransactionService } from '../services/transaction.service';
       </summary>
 
       <header class="sidebar-header">
-        <h2 class="sidebar-title">Family Expenses</h2>
+        <div class="sidebar-brand">
+          <app-logo variant="full" size="lg" alt="Family Expense Manager"></app-logo>
+        </div>
         <p class="sidebar-subtitle">Filter transactions</p>
       </header>
 
