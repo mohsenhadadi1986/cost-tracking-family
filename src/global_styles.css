@@ -244,11 +244,6 @@ select {
   padding-right: calc(var(--input-padding-x) * 2 + 12px);
 }
 
-select[multiple] {
-  background-image: none;
-  padding-right: var(--input-padding-x);
-}
-
 select:hover:not(:disabled),
 input:hover:not(:disabled) {
   border-color: var(--color-border-strong);
@@ -623,10 +618,6 @@ tbody tr:last-child td {
   .tab-container app-button .btn {
     width: 100%;
     justify-content: center;
-  }
-
-  select[multiple] {
-    min-height: 120px;
   }
 
   .sidebar-actions app-button,
