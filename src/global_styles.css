@@ -362,6 +362,15 @@ th {
   color: var(--color-muted);
 }
 
+@media (min-width: 993px) {
+  .table-scroll .table-wrapper th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--color-bg);
+  }
+}
+
 tbody tr:hover {
   background-color: var(--color-neutral-hover);
 }
