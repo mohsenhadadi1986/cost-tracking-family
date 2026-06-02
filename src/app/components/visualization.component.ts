@@ -1,20 +1,17 @@
 import { Component, computed } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { NgChartsModule } from 'ng2-charts';
-import { TransactionFilter } from '../models/transaction-filter.model';
+import { FilterBannerComponent } from './filter-banner.component';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
   selector: 'app-visualization',
   standalone: true,
-  imports: [CommonModule, NgChartsModule],
+  imports: [CommonModule, NgChartsModule, FilterBannerComponent],
   providers: [CurrencyPipe],
   template: `
     <h2 class="page-title">Overview</h2>
-    <div *ngIf="showFilterBanner()" class="card status-banner status-info">
-      <p class="filter-banner-title">Charts reflect active filters</p>
-      <p *ngIf="filterSummary()" class="filter-banner-detail">{{ filterSummary() }}</p>
-    </div>
+    <app-filter-banner title="Charts reflect active filters" />
     <div *ngIf="loadError()" class="card status-banner status-error">
       {{ loadError() }}
     </div>
@@ -42,30 +39,12 @@ import { TransactionService } from '../services/transaction.service';
         </canvas>
       </div>
     </div>
-  `,
-  styles: [`
-    .filter-banner-title {
-      margin: 0;
-      font-weight: 600;
-    }
-
-    .filter-banner-detail {
-      margin: var(--space-sm) 0 0;
-      font-size: 0.875rem;
-    }
-  `]
+  `
 })
 export class VisualizationComponent {
   activeFilter = this.transactionService.getActiveFilter();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
-
-  showFilterBanner = computed(() => this.activeFilter() !== null);
-
-  filterSummary = computed(() => {
-    const filter = this.activeFilter();
-    return filter ? formatFilterSummary(filter) : '';
-  });
 
   hasExpenseData = computed(() => {
     this.activeFilter();
@@ -163,29 +142,3 @@ export class VisualizationComponent {
   };
 }
 
-function formatFilterSummary(filter: TransactionFilter): string {
-  const parts: string[] = [];
-
-  if (filter.startDate || filter.endDate) {
-    const format = (date: string) =>
-      new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    const start = filter.startDate ? format(filter.startDate) : 'any';
-    const end = filter.endDate ? format(filter.endDate) : 'any';
-    parts.push(`Date: ${start} – ${end}`);
-  }
-
-  if (filter.categories.length > 0) {
-    parts.push(`Categories: ${filter.categories.join(', ')}`);
-  }
-
-  if (filter.type !== 'all') {
-    const label = filter.type.charAt(0).toUpperCase() + filter.type.slice(1);
-    parts.push(`Type: ${label}`);
-  }
-
-  return parts.join(' · ');
-}
