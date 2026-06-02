@@ -1,9 +1,11 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
+import { TransactionFilter } from '../models/transaction-filter.model';
 import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
+import { matchesFilter } from '../utils/matches-filter';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -15,6 +17,15 @@ export class TransactionService {
   private readonly summaryUrl = `${this.transactionsUrl}/summary`;
 
   private transactions = signal<Transaction[]>([]);
+  private activeFilter = signal<TransactionFilter | null>(null);
+  private filteredTransactions = computed(() => {
+    const filter = this.activeFilter();
+    const all = this.transactions();
+    if (filter === null) {
+      return all;
+    }
+    return all.filter(transaction => matchesFilter(transaction, filter));
+  });
   private categoryTotals = signal<Record<string, number>>({});
   private dailyTotals = signal<DailyTotal[]>([]);
   private loading = signal(true);
@@ -81,14 +92,34 @@ export class TransactionService {
     return this.transactions;
   }
 
+  getFilteredTransactions() {
+    return this.filteredTransactions;
+  }
+
+  getActiveFilter() {
+    return this.activeFilter.asReadonly();
+  }
+
+  setFilters(filter: TransactionFilter): void {
+    this.activeFilter.set(filter);
+  }
+
+  clearFilters(): void {
+    this.activeFilter.set(null);
+  }
+
+  hasActiveFilters(): boolean {
+    return this.activeFilter() !== null;
+  }
+
   getCategoryTotals() {
-    this.transactions();
-    return this.categoryTotals();
+    this.activeFilter();
+    return computeCategoryTotals(this.filteredTransactions());
   }
 
   getDailyTotals() {
-    this.transactions();
-    return this.dailyTotals();
+    this.activeFilter();
+    return computeDailyTotals(this.filteredTransactions());
   }
 
   getLoading() {

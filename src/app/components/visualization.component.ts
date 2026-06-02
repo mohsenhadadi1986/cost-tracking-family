@@ -40,7 +40,7 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class VisualizationComponent {
-  transactions = this.transactionService.getTransactions();
+  transactions = this.transactionService.getFilteredTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
