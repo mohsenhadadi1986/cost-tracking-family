@@ -175,6 +175,103 @@ describe('Transaction API integration', () => {
         );
       }
     });
+
+    it('filters by startDate and endDate', async () => {
+      const { app } = createTestApp(true);
+      const startDate = daysAgo(3);
+      const endDate = daysAgo(1);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ startDate, endDate });
+
+      assert.equal(response.status, 200);
+      assert.ok(response.body.length > 0);
+      assert.ok(
+        response.body.every(
+          (transaction: { date: string }) =>
+            transaction.date >= startDate && transaction.date <= endDate
+        )
+      );
+    });
+
+    it('filters by comma-separated categories', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ categories: 'Food,Transport' });
+
+      assert.equal(response.status, 200);
+      assert.ok(response.body.length > 0);
+      assert.ok(
+        response.body.every((transaction: { category: string }) =>
+          ['Food', 'Transport'].includes(transaction.category)
+        )
+      );
+    });
+
+    it('filters by repeated categories and type', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ categories: ['Food', 'Transport'], type: 'expense' });
+
+      assert.equal(response.status, 200);
+      assert.ok(response.body.length > 0);
+      assert.ok(
+        response.body.every(
+          (transaction: { category: string; type: string }) =>
+            transaction.type === 'expense' &&
+            ['Food', 'Transport'].includes(transaction.category)
+        )
+      );
+    });
+
+    it('returns 400 for invalid startDate', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ startDate: 'not-a-date' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /startDate must be a date in YYYY-MM-DD format/);
+    });
+
+    it('returns 400 when startDate is after endDate', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ startDate: daysAgo(1), endDate: daysAgo(5) });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /startDate must be on or before endDate/);
+    });
+
+    it('returns 400 for invalid category', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ categories: 'Unknown' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /categories must be one or more of:/);
+    });
+
+    it('returns 400 for invalid type', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ type: 'invalid' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /type must be either expense or income/);
+    });
   });
 
   describe('GET /api/transactions/summary', () => {
