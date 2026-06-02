@@ -40,17 +40,17 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class VisualizationComponent {
-  transactions = this.transactionService.getFilteredTransactions();
+  activeFilter = this.transactionService.getActiveFilter();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
   hasExpenseData = computed(() => {
-    this.transactions();
+    this.activeFilter();
     return Object.keys(this.transactionService.getCategoryTotals()).length > 0;
   });
 
   pieChartData = computed(() => {
-    this.transactions();
+    this.activeFilter();
     const categoryTotals = this.transactionService.getCategoryTotals();
     return {
       labels: Object.keys(categoryTotals),
@@ -62,7 +62,7 @@ export class VisualizationComponent {
   });
 
   lineChartData = computed(() => {
-    this.transactions();
+    this.activeFilter();
     const dailyTotals = this.transactionService.getDailyTotals();
     return {
       labels: dailyTotals.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
