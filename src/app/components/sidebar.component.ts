@@ -36,26 +36,33 @@ import { TransactionService } from '../services/transaction.service';
       </header>
 
       <div class="sidebar-body">
-        <section class="sidebar-section" aria-label="Date range filters">
-          <app-date-range-field
-            label="Date Range"
-            [(startDate)]="startDate"
-            [(endDate)]="endDate">
-          </app-date-range-field>
+        <section class="sidebar-section">
+          <h3 class="sidebar-section-label">Date Range</h3>
+          <div class="sidebar-fields">
+            <app-date-range-field
+              [label]="''"
+              [(startDate)]="startDate"
+              [(endDate)]="endDate">
+            </app-date-range-field>
+          </div>
         </section>
 
-        <section class="sidebar-section" aria-label="Category filters">
-          <app-category-multi-select
-            label="Categories"
-            [options]="categories"
-            [(ngModel)]="selectedCategories">
-          </app-category-multi-select>
+        <section class="sidebar-section">
+          <div class="sidebar-fields">
+            <app-category-multi-select
+              label="Categories"
+              [options]="categories"
+              [(ngModel)]="selectedCategories">
+            </app-category-multi-select>
+          </div>
         </section>
 
-        <section class="sidebar-section" aria-label="Transaction type filter">
-          <app-transaction-type-filter
-            [(ngModel)]="selectedType">
-          </app-transaction-type-filter>
+        <section class="sidebar-section">
+          <div class="sidebar-fields">
+            <app-transaction-type-filter
+              [(ngModel)]="selectedType">
+            </app-transaction-type-filter>
+          </div>
         </section>
       </div>
 
