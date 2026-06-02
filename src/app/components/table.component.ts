@@ -1,5 +1,6 @@
 import { Component, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TransactionFilter } from '../models/transaction-filter.model';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
@@ -8,49 +9,57 @@ import { TransactionService } from '../services/transaction.service';
   imports: [CommonModule],
   template: `
     <h2 class="page-title">Transactions</h2>
+    <div *ngIf="showFilterBanner()" class="card status-banner status-info">
+      <p class="filter-banner-title">Table reflects active filters</p>
+      <p *ngIf="filterSummary()" class="filter-banner-detail">{{ filterSummary() }}</p>
+    </div>
     <div *ngIf="loadError()" class="card status-banner status-error">
       {{ loadError() }}
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Type</th>
-            <th>Amount</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngIf="loading()">
-            <td colspan="5" class="empty-state">Loading transactions…</td>
-          </tr>
-          <tr *ngIf="!loading() && !loadError() && allTransactions().length === 0">
-            <td colspan="5" class="empty-state">
-              No transactions yet. Add one in the Insert Data tab.
-            </td>
-          </tr>
-          <tr *ngIf="!loading() && !loadError() && allTransactions().length > 0 && transactions().length === 0">
-            <td colspan="5" class="empty-state">
-              No transactions match these filters.
-            </td>
-          </tr>
-          <tr *ngFor="let transaction of transactions()">
-            <td data-label="Date">{{transaction.date | date:'mediumDate'}}</td>
-            <td data-label="Category">{{transaction.category}}</td>
-            <td data-label="Type">
-              <span class="type-badge" [class.income]="transaction.type === 'income'" [class.expense]="transaction.type === 'expense'">
-                {{transaction.type}}
-              </span>
-            </td>
-            <td data-label="Amount" [class.amount-income]="transaction.type === 'income'" [class.amount-expense]="transaction.type === 'expense'">
-              {{transaction.amount | currency}}
-            </td>
-            <td data-label="Description">{{transaction.description}}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="table-shell">
+      <div class="table-scroll">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="loading()">
+                <td colspan="5" class="empty-state">Loading transactions…</td>
+              </tr>
+              <tr *ngIf="!loading() && !loadError() && allTransactions().length === 0">
+                <td colspan="5" class="empty-state">
+                  No transactions yet. Add one in the Insert Data tab.
+                </td>
+              </tr>
+              <tr *ngIf="!loading() && !loadError() && allTransactions().length > 0 && transactions().length === 0">
+                <td colspan="5" class="empty-state">
+                  No transactions match these filters.
+                </td>
+              </tr>
+              <tr *ngFor="let transaction of transactions()">
+                <td data-label="Date">{{transaction.date | date:'mediumDate'}}</td>
+                <td data-label="Category">{{transaction.category}}</td>
+                <td data-label="Type">
+                  <span class="type-badge" [class.income]="transaction.type === 'income'" [class.expense]="transaction.type === 'expense'">
+                    {{transaction.type}}
+                  </span>
+                </td>
+                <td data-label="Amount" [class.amount-income]="transaction.type === 'income'" [class.amount-expense]="transaction.type === 'expense'">
+                  {{transaction.amount | currency}}
+                </td>
+                <td data-label="Description">{{transaction.description}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div
         *ngIf="showFooter()"
         class="table-footer"
@@ -79,13 +88,32 @@ import { TransactionService } from '../services/transaction.service';
         </span>
       </div>
     </div>
-  `
+  `,
+  styles: [`
+    .filter-banner-title {
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .filter-banner-detail {
+      margin: var(--space-sm) 0 0;
+      font-size: 0.875rem;
+    }
+  `]
 })
 export class TableComponent {
   transactions = this.transactionService.getFilteredTransactions();
   allTransactions = this.transactionService.getTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
+  activeFilter = this.transactionService.getActiveFilter();
+
+  showFilterBanner = computed(() => this.activeFilter() !== null);
+
+  filterSummary = computed(() => {
+    const filter = this.activeFilter();
+    return filter ? formatFilterSummary(filter) : '';
+  });
 
   footerSummary = computed(() => {
     const rows = this.transactions();
@@ -113,4 +141,31 @@ export class TableComponent {
   );
 
   constructor(private transactionService: TransactionService) {}
+}
+
+function formatFilterSummary(filter: TransactionFilter): string {
+  const parts: string[] = [];
+
+  if (filter.startDate || filter.endDate) {
+    const format = (date: string) =>
+      new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    const start = filter.startDate ? format(filter.startDate) : 'any';
+    const end = filter.endDate ? format(filter.endDate) : 'any';
+    parts.push(`Date: ${start} – ${end}`);
+  }
+
+  if (filter.categories.length > 0) {
+    parts.push(`Categories: ${filter.categories.join(', ')}`);
+  }
+
+  if (filter.type !== 'all') {
+    const label = filter.type.charAt(0).toUpperCase() + filter.type.slice(1);
+    parts.push(`Type: ${label}`);
+  }
+
+  return parts.join(' · ');
 }

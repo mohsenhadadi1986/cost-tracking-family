@@ -30,10 +30,12 @@ import { ApiHealthService } from './app/services/api-health.service';
           </app-button>
         </div>
 
-        <div [ngSwitch]="activeTab">
-          <app-table *ngSwitchCase="'Table'"></app-table>
-          <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
-          <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
+        <div class="content-main" [class.content-main--table]="activeTab === 'Table'">
+          <div [ngSwitch]="activeTab">
+            <app-table *ngSwitchCase="'Table'"></app-table>
+            <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
+            <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
+          </div>
         </div>
       </div>
     </div>
