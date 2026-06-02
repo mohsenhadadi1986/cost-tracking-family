@@ -28,8 +28,14 @@ import { TransactionService } from '../services/transaction.service';
       [open]="filtersOpen"
       (toggle)="onFiltersToggle($event)">
       <summary class="sidebar-toggle" aria-label="Toggle transaction filters">
-        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+        <app-logo
+          class="sidebar-toggle-mark"
+          variant="mark"
+          size="md"
+          alt="Family Expense Manager">
+        </app-logo>
         <span class="sidebar-toggle-label">Filters</span>
+        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
       </summary>
 
       <header class="sidebar-header">
