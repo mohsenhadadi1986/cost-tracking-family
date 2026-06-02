@@ -3,20 +3,23 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DateFieldComponent } from './date-field.component';
 
+let nextRangeId = 0;
+
 @Component({
   selector: 'app-date-range-field',
   standalone: true,
   imports: [CommonModule, FormsModule, DateFieldComponent],
   template: `
     <fieldset class="date-range-field">
-      <legend *ngIf="label" class="date-range-field__legend">{{ label }}</legend>
+      <legend *ngIf="label" class="date-range-field__legend" [id]="legendId">{{ label }}</legend>
 
       <app-date-field
         class="date-range-field__field"
         label="Start"
         [ngModel]="startDate"
         (ngModelChange)="onStartDateChange($event)"
-        [error]="dateRangeInvalid">
+        [error]="dateRangeInvalid"
+        [describedBy]="dateRangeInvalid ? errorId : ''">
       </app-date-field>
 
       <app-date-field
@@ -24,10 +27,15 @@ import { DateFieldComponent } from './date-field.component';
         label="End"
         [ngModel]="endDate"
         (ngModelChange)="onEndDateChange($event)"
-        [error]="dateRangeInvalid">
+        [error]="dateRangeInvalid"
+        [describedBy]="dateRangeInvalid ? errorId : ''">
       </app-date-field>
 
-      <p *ngIf="dateRangeInvalid" class="date-range-field__hint" role="alert">
+      <p
+        *ngIf="dateRangeInvalid"
+        class="date-range-field__hint filter-hint"
+        [id]="errorId"
+        role="alert">
         Start date must be on or before end date.
       </p>
     </fieldset>
@@ -64,7 +72,7 @@ import { DateFieldComponent } from './date-field.component';
     .date-range-field__hint {
       margin: var(--space-sm) 0 0;
       font-size: var(--font-size-xs);
-      color: var(--color-expense);
+      color: var(--color-error-text);
     }
   `]
 })
@@ -74,6 +82,9 @@ export class DateRangeFieldComponent {
   @Output() startDateChange = new EventEmitter<string>();
   @Input() endDate = '';
   @Output() endDateChange = new EventEmitter<string>();
+
+  readonly legendId = `date-range-legend-${nextRangeId++}`;
+  readonly errorId = `date-range-error-${this.legendId}`;
 
   get dateRangeInvalid(): boolean {
     return !!(this.startDate && this.endDate && this.startDate > this.endDate);

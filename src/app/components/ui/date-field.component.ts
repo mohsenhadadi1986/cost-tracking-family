@@ -28,6 +28,8 @@ let nextId = 0;
           class="date-field__input"
           [id]="inputId"
           [attr.name]="name || null"
+          [attr.aria-invalid]="error || null"
+          [attr.aria-describedby]="ariaDescribedBy"
           [required]="required"
           [disabled]="disabled"
           [value]="value"
@@ -41,7 +43,13 @@ let nextId = 0;
         </span>
       </div>
 
-      <p *ngIf="hint" class="date-field__hint" [class.date-field__hint--error]="error">{{ hint }}</p>
+      <p
+        *ngIf="hint"
+        class="date-field__hint"
+        [class.date-field__hint--error]="error"
+        [id]="hintId">
+        {{ hint }}
+      </p>
     </div>
   `,
   styles: [`
@@ -59,7 +67,7 @@ let nextId = 0;
 
     .date-field__required {
       margin-left: var(--space-xs);
-      color: var(--color-expense);
+      color: var(--color-error-text);
     }
 
     .date-field__control {
@@ -127,12 +135,12 @@ let nextId = 0;
     }
 
     .date-field--error .date-field__input {
-      border-color: var(--color-expense);
+      border-color: var(--color-error-text);
     }
 
     .date-field--error .date-field__input:focus-visible {
-      border-color: var(--color-expense);
-      box-shadow: 0 0 0 var(--focus-ring-width) rgba(220, 38, 38, 0.25);
+      border-color: var(--color-error-text);
+      box-shadow: 0 0 0 var(--focus-ring-width) rgba(185, 28, 28, 0.25);
     }
 
     .date-field__hint {
@@ -142,7 +150,7 @@ let nextId = 0;
     }
 
     .date-field__hint--error {
-      color: var(--color-expense);
+      color: var(--color-error-text);
     }
   `]
 })
@@ -153,8 +161,18 @@ export class DateFieldComponent implements ControlValueAccessor {
   @Input() disabled = false;
   @Input() hint = '';
   @Input() error = false;
+  @Input() describedBy = '';
 
   readonly inputId = `date-field-${nextId++}`;
+
+  get hintId(): string {
+    return this.hint ? `date-field-hint-${this.inputId}` : '';
+  }
+
+  get ariaDescribedBy(): string | null {
+    const ids = [this.describedBy, this.hintId].filter(Boolean);
+    return ids.length > 0 ? ids.join(' ') : null;
+  }
 
   value = '';
 
