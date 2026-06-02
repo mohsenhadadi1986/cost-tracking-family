@@ -32,7 +32,7 @@ import { TransactionService } from '../services/transaction.service';
           class="sidebar-toggle-mark"
           variant="mark"
           size="md"
-          alt="Family Expense Manager">
+          alt="Family Expenses">
         </app-logo>
         <span class="sidebar-toggle-label">Filters</span>
         <span class="sidebar-toggle-icon" aria-hidden="true"></span>
@@ -40,7 +40,7 @@ import { TransactionService } from '../services/transaction.service';
 
       <header class="sidebar-header">
         <div class="sidebar-brand">
-          <app-logo variant="full" size="lg" alt="Family Expense Manager"></app-logo>
+          <app-logo variant="full" size="lg" alt="Family Expenses"></app-logo>
         </div>
         <p class="sidebar-subtitle">Filter transactions</p>
       </header>
