@@ -359,6 +359,35 @@ tbody tr:last-child td {
   padding: var(--space-lg) !important;
 }
 
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-lg);
+  padding: 14px 16px;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+}
+
+.table-footer__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.table-footer__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+}
+
+.table-footer__value {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
 .status-banner {
   margin-bottom: var(--space-md);
   padding: var(--space-md);
@@ -548,6 +577,15 @@ tbody tr:last-child td {
 
   .table-wrapper td.empty-state::before {
     display: none;
+  }
+
+  .table-footer {
+    margin-top: 12px;
+    border-top: none;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
   }
 }
 
