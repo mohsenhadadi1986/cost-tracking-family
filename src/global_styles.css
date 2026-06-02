@@ -178,14 +178,24 @@ body {
 }
 
 .tab-container {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  align-items: center;
+  gap: var(--space-xs);
+  width: fit-content;
+  max-width: 100%;
   margin-bottom: var(--space-lg);
-  padding: var(--space-sm);
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  padding: var(--space-xs);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: none;
+}
+
+.tab-container app-button .btn {
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .select-container {
@@ -598,9 +608,14 @@ tbody tr:last-child td {
   }
 
   .tab-container app-button {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: fit-content;
     min-height: 44px;
+  }
+
+  .tab-container app-button .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   select[multiple] {
@@ -630,6 +645,7 @@ tbody tr:last-child td {
   }
 
   .tab-container app-button {
+    flex: none;
     width: 100%;
   }
 
