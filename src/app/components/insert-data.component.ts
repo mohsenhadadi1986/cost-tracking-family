@@ -2,13 +2,14 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from './ui/button.component';
+import { DateFieldComponent } from './ui/date-field.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
   selector: 'app-insert-data',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonComponent],
+  imports: [CommonModule, FormsModule, ButtonComponent, DateFieldComponent],
   template: `
     <h2 class="page-title">Add Transaction</h2>
     <div *ngIf="submitError()" class="card status-banner status-error form-card">
@@ -16,8 +17,13 @@ import { TransactionService } from '../services/transaction.service';
     </div>
     <form class="card form-card" (ngSubmit)="onSubmit()">
       <div class="form-group">
-        <label>Date</label>
-        <input type="date" [(ngModel)]="newTransaction.date" name="date" required [disabled]="submitting()">
+        <app-date-field
+          label="Date"
+          name="date"
+          [(ngModel)]="newTransaction.date"
+          [required]="true"
+          [disabled]="submitting()">
+        </app-date-field>
       </div>
 
       <div class="form-group">

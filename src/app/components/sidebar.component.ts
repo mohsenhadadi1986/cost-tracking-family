@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from './ui/button.component';
+import { DateRangeFieldComponent } from './ui/date-range-field.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionFilter, TransactionTypeFilter } from '../models/transaction-filter.model';
 import { TransactionService } from '../services/transaction.service';
@@ -9,7 +10,7 @@ import { TransactionService } from '../services/transaction.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonComponent],
+  imports: [CommonModule, FormsModule, ButtonComponent, DateRangeFieldComponent],
   template: `
     <details
       class="sidebar sidebar-panel"
@@ -21,10 +22,11 @@ import { TransactionService } from '../services/transaction.service';
       <p class="sidebar-subtitle">Filter transactions</p>
 
       <div class="select-container">
-        <label>Date Range</label>
-        <input type="date" [(ngModel)]="startDate">
-        <input type="date" [(ngModel)]="endDate">
-        <p *ngIf="dateRangeInvalid" class="filter-hint">Start date must be on or before end date.</p>
+        <app-date-range-field
+          label="Date Range"
+          [(startDate)]="startDate"
+          [(endDate)]="endDate">
+        </app-date-range-field>
       </div>
 
       <div class="select-container">
@@ -48,14 +50,7 @@ import { TransactionService } from '../services/transaction.service';
       <app-button type="button" variant="primary" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</app-button>
       <app-button type="button" variant="secondary" (click)="clearFilters()">Clear Filters</app-button>
     </details>
-  `,
-  styles: [`
-    .filter-hint {
-      margin: var(--space-sm) 0 0;
-      font-size: 0.8125rem;
-      color: var(--color-expense);
-    }
-  `]
+  `
 })
 export class SidebarComponent implements OnInit, OnDestroy {
   categories = [...TRANSACTION_CATEGORIES];
