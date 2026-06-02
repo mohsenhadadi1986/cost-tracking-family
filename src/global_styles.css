@@ -65,9 +65,6 @@
   --input-height: 2.5rem;
   --input-padding-x: 0.75rem;
   --input-padding-y: 0.625rem;
-  --button-height: 2.5rem;
-  --button-padding-x: 1.125rem;
-  --button-padding-y: 0.625rem;
 
   /* Motion */
   --transition-fast: 150ms ease;
@@ -334,46 +331,6 @@ tbody tr:last-child td {
   color: var(--color-text);
 }
 
-button {
-  min-height: var(--button-height);
-  padding: var(--button-padding-y) var(--button-padding-x);
-  background-color: var(--color-primary);
-  color: white;
-  border: 1px solid transparent;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-button:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
-}
-
-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-button:disabled:hover {
-  background-color: var(--color-primary);
-}
-
-button:focus {
-  outline: none;
-}
-
-button:focus-visible {
-  border-color: var(--color-primary);
-  box-shadow: var(--focus-ring);
-}
-
 .charts-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -535,10 +492,6 @@ button:focus-visible {
   .tab-container app-button {
     flex: 1;
     min-width: fit-content;
-    min-height: 44px;
-  }
-
-  button {
     min-height: 44px;
   }
 
