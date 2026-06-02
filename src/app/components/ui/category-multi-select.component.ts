@@ -23,7 +23,7 @@ let nextCategoryMultiSelectId = 0;
   ],
   template: `
     <div class="category-multi-select">
-      <label [attr.id]="labelId">{{ label }}</label>
+      <label [attr.id]="labelId" [attr.for]="triggerId">{{ label }}</label>
 
       <div class="category-multi-select__control">
         <button
@@ -68,6 +68,11 @@ let nextCategoryMultiSelectId = 0;
             [attr.tabindex]="focusedOptionIndex === index ? 0 : -1"
             (click)="toggleCategory(category)"
             (focus)="focusedOptionIndex = index">
+            <span
+              class="category-multi-select__checkbox"
+              aria-hidden="true"
+              [class.category-multi-select__checkbox--checked]="isSelected(category)">
+            </span>
             <span>{{ category }}</span>
           </button>
         </div>
@@ -172,6 +177,27 @@ let nextCategoryMultiSelectId = 0;
       border-radius: var(--radius-sm);
       background-color: var(--color-surface);
       box-shadow: var(--shadow-md);
+    }
+
+    .category-multi-select__checkbox {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      margin-right: var(--space-sm);
+      border: 1px solid var(--color-border-input);
+      border-radius: var(--radius-xs, 2px);
+      background-color: var(--color-surface);
+      background-repeat: no-repeat;
+      background-position: center;
+      transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast);
+    }
+
+    .category-multi-select__checkbox--checked {
+      border-color: var(--color-primary);
+      background-color: var(--color-primary);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' viewBox='0 0 10 8' fill='none'%3E%3Cpath d='M1 4L3.5 6.5L9 1' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
 
     .category-multi-select__option {
