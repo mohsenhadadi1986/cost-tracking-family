@@ -10,6 +10,12 @@ import { Transaction } from '../models/transaction.model';
 
 const dbPath = path.join(os.tmpdir(), `cost-tracking-verify-${Date.now()}.db`);
 
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
 function expectedCategoryTotals(transactions: Omit<Transaction, 'id'>[]): Record<string, number> {
   return transactions.reduce((acc, curr) => {
     if (curr.type === 'expense') {
@@ -54,7 +60,7 @@ try {
   assert.deepEqual(summary.dailyTotals, expectedDailyTotals(MOCK_TRANSACTIONS));
 
   const created = repository.create({
-    date: '2026-05-30',
+    date: daysAgo(0),
     category: 'Food',
     type: 'expense',
     amount: 12.5,
@@ -71,7 +77,7 @@ try {
   assert.throws(
     () =>
       repository.create({
-        date: '2026-05-30',
+        date: daysAgo(0),
         category: 'Food',
         type: 'invalid' as 'expense',
         amount: 10,
@@ -83,7 +89,7 @@ try {
   assert.throws(
     () =>
       repository.create({
-        date: '2026-05-30',
+        date: daysAgo(0),
         category: 'Food',
         type: 'expense',
         amount: 0,

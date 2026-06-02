@@ -1,12 +1,13 @@
 import { Transaction } from '../models/transaction.model';
 import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 
 export class TransactionSummaryService {
   constructor(private readonly repository: TransactionRepository) {}
 
-  getSummary(): TransactionSummaryResponse {
-    const transactions = this.repository.findAll();
+  getSummary(criteria: TransactionFilterCriteria = {}): TransactionSummaryResponse {
+    const transactions = this.repository.findFiltered(criteria);
 
     return {
       categoryTotals: getCategoryTotals(transactions),
