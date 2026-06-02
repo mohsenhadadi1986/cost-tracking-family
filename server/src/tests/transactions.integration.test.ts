@@ -6,6 +6,7 @@ import path from 'path';
 import request from 'supertest';
 import { createApp } from '../app';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
+import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import type Database from 'better-sqlite3';
 
 const openDatabases: Database.Database[] = [];
@@ -27,6 +28,28 @@ function daysAgo(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() - days);
   return date.toISOString().split('T')[0];
+}
+
+function filterMockTransactions(criteria: TransactionFilterCriteria) {
+  return MOCK_TRANSACTIONS.filter(transaction => {
+    if (criteria.startDate && transaction.date < criteria.startDate) {
+      return false;
+    }
+
+    if (criteria.endDate && transaction.date > criteria.endDate) {
+      return false;
+    }
+
+    if (criteria.categories && !criteria.categories.includes(transaction.category)) {
+      return false;
+    }
+
+    if (criteria.type && transaction.type !== criteria.type) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function expectedCategoryTotals(transactions = MOCK_TRANSACTIONS): Record<string, number> {
@@ -182,13 +205,14 @@ describe('Transaction API integration', () => {
       const { app } = createTestApp(true);
       const startDate = daysAgo(3);
       const endDate = daysAgo(1);
+      const expected = filterMockTransactions({ startDate, endDate });
 
       const response = await request(app)
         .get('/api/transactions')
         .query({ startDate, endDate });
 
       assert.equal(response.status, 200);
-      assert.ok(response.body.length > 0);
+      assert.equal(response.body.length, expected.length);
       assert.ok(
         response.body.every(
           (transaction: { date: string }) =>
@@ -199,34 +223,38 @@ describe('Transaction API integration', () => {
 
     it('filters by comma-separated categories', async () => {
       const { app } = createTestApp(true);
+      const categories = ['Food', 'Transport'];
+      const expected = filterMockTransactions({ categories });
 
       const response = await request(app)
         .get('/api/transactions')
         .query({ categories: 'Food,Transport' });
 
       assert.equal(response.status, 200);
-      assert.ok(response.body.length > 0);
+      assert.equal(response.body.length, expected.length);
       assert.ok(
         response.body.every((transaction: { category: string }) =>
-          ['Food', 'Transport'].includes(transaction.category)
+          categories.includes(transaction.category)
         )
       );
     });
 
     it('filters by repeated categories and type', async () => {
       const { app } = createTestApp(true);
+      const categories = ['Food', 'Transport'];
+      const expected = filterMockTransactions({ categories, type: 'expense' });
 
       const response = await request(app)
         .get('/api/transactions')
         .query({ categories: ['Food', 'Transport'], type: 'expense' });
 
       assert.equal(response.status, 200);
-      assert.ok(response.body.length > 0);
+      assert.equal(response.body.length, expected.length);
       assert.ok(
         response.body.every(
           (transaction: { category: string; type: string }) =>
             transaction.type === 'expense' &&
-            ['Food', 'Transport'].includes(transaction.category)
+            categories.includes(transaction.category)
         )
       );
     });
@@ -298,6 +326,30 @@ describe('Transaction API integration', () => {
       assert.equal(response.status, 200);
       assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals(expenseTransactions));
       assert.deepEqual(response.body.dailyTotals, expectedDailyTotals(expenseTransactions));
+    });
+
+    it('returns filtered category and daily totals that differ from unfiltered baseline', async () => {
+      const { app } = createTestApp(true);
+      const startDate = daysAgo(2);
+      const endDate = daysAgo(1);
+      const criteria = { startDate, endDate, categories: ['Food'], type: 'expense' as const };
+      const filteredTransactions = filterMockTransactions(criteria);
+
+      const baseline = await request(app).get('/api/transactions/summary');
+      const filtered = await request(app)
+        .get('/api/transactions/summary')
+        .query({
+          startDate,
+          endDate,
+          categories: 'Food',
+          type: 'expense',
+        });
+
+      assert.equal(filtered.status, 200);
+      assert.deepEqual(filtered.body.categoryTotals, expectedCategoryTotals(filteredTransactions));
+      assert.deepEqual(filtered.body.dailyTotals, expectedDailyTotals(filteredTransactions));
+      assert.notDeepEqual(filtered.body.categoryTotals, baseline.body.categoryTotals);
+      assert.notDeepEqual(filtered.body.dailyTotals, baseline.body.dailyTotals);
     });
 
     it('returns 400 for invalid filter parameters', async () => {
