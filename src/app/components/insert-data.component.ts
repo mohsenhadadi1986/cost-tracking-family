@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from './ui/button.component';
 import { CategorySelectComponent } from './ui/category-select.component';
 import { TransactionTypeSelectComponent } from './ui/transaction-type-select.component';
+import { DateFieldComponent } from './ui/date-field.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionService } from '../services/transaction.service';
 
@@ -14,6 +15,7 @@ import { TransactionService } from '../services/transaction.service';
     CommonModule,
     FormsModule,
     ButtonComponent,
+    DateFieldComponent,
     CategorySelectComponent,
     TransactionTypeSelectComponent
   ],
@@ -24,8 +26,13 @@ import { TransactionService } from '../services/transaction.service';
     </div>
     <form class="card form-card" (ngSubmit)="onSubmit()">
       <div class="form-group">
-        <label>Date</label>
-        <input type="date" [(ngModel)]="newTransaction.date" name="date" required [disabled]="submitting()">
+        <app-date-field
+          label="Date"
+          name="date"
+          [(ngModel)]="newTransaction.date"
+          [required]="true"
+          [disabled]="submitting()">
+        </app-date-field>
       </div>
 
       <div class="form-group">
