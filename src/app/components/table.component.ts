@@ -1,13 +1,15 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FilterBannerComponent } from './filter-banner.component';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
   selector: 'app-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FilterBannerComponent],
   template: `
     <h2 class="page-title">Transactions</h2>
+    <app-filter-banner title="Table reflects active filters" />
     <div *ngIf="loadError()" class="card status-banner status-error">
       {{ loadError() }}
     </div>
