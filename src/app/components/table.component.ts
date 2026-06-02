@@ -26,9 +26,14 @@ import { TransactionService } from '../services/transaction.service';
           <tr *ngIf="loading()">
             <td colspan="5" class="empty-state">Loading transactions…</td>
           </tr>
-          <tr *ngIf="!loading() && !loadError() && transactions().length === 0">
+          <tr *ngIf="!loading() && !loadError() && allTransactions().length === 0">
             <td colspan="5" class="empty-state">
               No transactions yet. Add one in the Insert Data tab.
+            </td>
+          </tr>
+          <tr *ngIf="!loading() && !loadError() && allTransactions().length > 0 && transactions().length === 0">
+            <td colspan="5" class="empty-state">
+              No transactions match these filters.
             </td>
           </tr>
           <tr *ngFor="let transaction of transactions()">
@@ -51,6 +56,7 @@ import { TransactionService } from '../services/transaction.service';
 })
 export class TableComponent {
   transactions = this.transactionService.getFilteredTransactions();
+  allTransactions = this.transactionService.getTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
