@@ -52,9 +52,7 @@ function filterMockTransactions(criteria: TransactionFilterCriteria) {
   });
 }
 
-function expectedCategoryTotals(
-  transactions: typeof MOCK_TRANSACTIONS = MOCK_TRANSACTIONS
-): Record<string, number> {
+function expectedCategoryTotals(transactions = MOCK_TRANSACTIONS): Record<string, number> {
   return transactions.reduce((acc, curr) => {
     if (curr.type === 'expense') {
       acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
@@ -64,7 +62,7 @@ function expectedCategoryTotals(
 }
 
 function expectedDailyTotals(
-  transactions: typeof MOCK_TRANSACTIONS = MOCK_TRANSACTIONS
+  transactions = MOCK_TRANSACTIONS
 ): Array<{ date: string; income: number; expense: number }> {
   const last7Days = Array.from({ length: 7 }, (_, i) => daysAgo(6 - i));
 
@@ -203,9 +201,9 @@ describe('Transaction API integration', () => {
       }
     });
 
-    it('filters by date range', async () => {
+    it('filters by startDate and endDate', async () => {
       const { app } = createTestApp(true);
-      const startDate = daysAgo(2);
+      const startDate = daysAgo(3);
       const endDate = daysAgo(1);
       const expected = filterMockTransactions({ startDate, endDate });
 
@@ -215,41 +213,86 @@ describe('Transaction API integration', () => {
 
       assert.equal(response.status, 200);
       assert.equal(response.body.length, expected.length);
-      assert.ok(response.body.every((transaction: { date: string }) =>
-        transaction.date >= startDate && transaction.date <= endDate
-      ));
+      assert.ok(
+        response.body.every(
+          (transaction: { date: string }) =>
+            transaction.date >= startDate && transaction.date <= endDate
+        )
+      );
     });
 
-    it('filters by category', async () => {
+    it('filters by comma-separated categories', async () => {
       const { app } = createTestApp(true);
       const categories = ['Food', 'Transport'];
       const expected = filterMockTransactions({ categories });
 
       const response = await request(app)
         .get('/api/transactions')
-        .query({ categories: categories.join(',') });
+        .query({ categories: 'Food,Transport' });
 
       assert.equal(response.status, 200);
       assert.equal(response.body.length, expected.length);
-      assert.ok(response.body.every((transaction: { category: string }) =>
-        categories.includes(transaction.category)
-      ));
+      assert.ok(
+        response.body.every((transaction: { category: string }) =>
+          categories.includes(transaction.category)
+        )
+      );
     });
 
-    it('filters by type', async () => {
+    it('filters by repeated categories and type', async () => {
       const { app } = createTestApp(true);
-      const expected = filterMockTransactions({ type: 'expense' });
+      const categories = ['Food', 'Transport'];
+      const expected = filterMockTransactions({ categories, type: 'expense' });
 
       const response = await request(app)
         .get('/api/transactions')
-        .query({ type: 'expense' });
+        .query({ categories: ['Food', 'Transport'], type: 'expense' });
 
       assert.equal(response.status, 200);
       assert.equal(response.body.length, expected.length);
-      assert.ok(response.body.every((transaction: { type: string }) => transaction.type === 'expense'));
+      assert.ok(
+        response.body.every(
+          (transaction: { category: string; type: string }) =>
+            transaction.type === 'expense' &&
+            categories.includes(transaction.category)
+        )
+      );
     });
 
-    it('returns 400 for invalid filter type', async () => {
+    it('returns 400 for invalid startDate', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ startDate: 'not-a-date' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /startDate must be a date in YYYY-MM-DD format/);
+    });
+
+    it('returns 400 when startDate is after endDate', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ startDate: daysAgo(1), endDate: daysAgo(5) });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /startDate must be on or before endDate/);
+    });
+
+    it('returns 400 for invalid category', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions')
+        .query({ categories: 'Unknown' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /categories must be one or more of:/);
+    });
+
+    it('returns 400 for invalid type', async () => {
       const { app } = createTestApp(true);
 
       const response = await request(app)
@@ -270,6 +313,19 @@ describe('Transaction API integration', () => {
       assert.equal(response.status, 200);
       assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals());
       assert.deepEqual(response.body.dailyTotals, expectedDailyTotals());
+    });
+
+    it('returns aggregates computed from expense transactions only when type=expense', async () => {
+      const { app } = createTestApp(true);
+      const expenseTransactions = MOCK_TRANSACTIONS.filter(t => t.type === 'expense');
+
+      const response = await request(app)
+        .get('/api/transactions/summary')
+        .query({ type: 'expense' });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals(expenseTransactions));
+      assert.deepEqual(response.body.dailyTotals, expectedDailyTotals(expenseTransactions));
     });
 
     it('returns filtered category and daily totals that differ from unfiltered baseline', async () => {
@@ -296,15 +352,15 @@ describe('Transaction API integration', () => {
       assert.notDeepEqual(filtered.body.dailyTotals, baseline.body.dailyTotals);
     });
 
-    it('returns 400 for invalid filter startDate', async () => {
+    it('returns 400 for invalid filter parameters', async () => {
       const { app } = createTestApp(true);
 
       const response = await request(app)
         .get('/api/transactions/summary')
-        .query({ startDate: 'not-a-date' });
+        .query({ type: 'invalid' });
 
       assert.equal(response.status, 400);
-      assert.match(response.body.error, /startDate must be a date in YYYY-MM-DD format/);
+      assert.match(response.body.error, /type must be either expense or income/);
     });
   });
 });
