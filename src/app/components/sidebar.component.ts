@@ -37,12 +37,19 @@ import { TransactionService } from '../services/transaction.service';
       </div>
 
       <div class="select-container">
-        <label>Type</label>
-        <select [(ngModel)]="selectedType">
-          <option value="all">All</option>
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
+        <label id="type-filter-label">Type</label>
+        <div class="type-filter" role="group" aria-labelledby="type-filter-label">
+          <app-button
+            *ngFor="let option of typeOptions"
+            type="button"
+            variant="ghost"
+            size="sm"
+            [active]="selectedType === option.value"
+            [attr.aria-pressed]="selectedType === option.value"
+            (click)="selectedType = option.value">
+            {{ option.label }}
+          </app-button>
+        </div>
       </div>
 
       <app-button type="button" variant="primary" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</app-button>
@@ -50,6 +57,21 @@ import { TransactionService } from '../services/transaction.service';
     </details>
   `,
   styles: [`
+    .type-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+      padding: var(--space-xs);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-input);
+      border-radius: var(--radius-sm);
+    }
+
+    .type-filter app-button {
+      flex: 1;
+      min-width: fit-content;
+    }
+
     .filter-hint {
       margin: var(--space-sm) 0 0;
       font-size: 0.8125rem;
@@ -58,6 +80,12 @@ import { TransactionService } from '../services/transaction.service';
   `]
 })
 export class SidebarComponent implements OnInit, OnDestroy {
+  readonly typeOptions: { value: TransactionTypeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'expense', label: 'Expense' },
+    { value: 'income', label: 'Income' },
+  ];
+
   categories = [...TRANSACTION_CATEGORIES];
   startDate = '';
   endDate = '';

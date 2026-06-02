@@ -552,6 +552,12 @@ button:focus-visible {
     width: 100%;
   }
 
+  .sidebar .type-filter app-button {
+    display: inline-block;
+    width: auto;
+    min-height: 44px;
+  }
+
   .page-title {
     font-size: var(--font-size-lg);
   }
