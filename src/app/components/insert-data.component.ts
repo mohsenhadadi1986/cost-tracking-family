@@ -2,13 +2,21 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonComponent } from './ui/button.component';
+import { CategorySelectComponent } from './ui/category-select.component';
+import { TransactionTypeSelectComponent } from './ui/transaction-type-select.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
   selector: 'app-insert-data',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonComponent,
+    CategorySelectComponent,
+    TransactionTypeSelectComponent
+  ],
   template: `
     <h2 class="page-title">Add Transaction</h2>
     <div *ngIf="submitError()" class="card status-banner status-error form-card">
@@ -21,20 +29,23 @@ import { TransactionService } from '../services/transaction.service';
       </div>
 
       <div class="form-group">
-        <label>Category</label>
-        <select [(ngModel)]="newTransaction.category" name="category" required [disabled]="submitting()">
-          <option *ngFor="let category of categories" [value]="category">
-            {{category}}
-          </option>
-        </select>
+        <app-category-select
+          label="Category"
+          [options]="categories"
+          [(ngModel)]="newTransaction.category"
+          name="category"
+          required
+          [disabled]="submitting()">
+        </app-category-select>
       </div>
 
       <div class="form-group">
-        <label>Type</label>
-        <select [(ngModel)]="newTransaction.type" name="type" required [disabled]="submitting()">
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
+        <app-transaction-type-select
+          [(ngModel)]="newTransaction.type"
+          name="type"
+          required
+          [disabled]="submitting()">
+        </app-transaction-type-select>
       </div>
 
       <div class="form-group">
