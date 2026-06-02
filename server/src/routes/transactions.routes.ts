@@ -159,9 +159,39 @@ export function createTransactionsRouter(
    *     summary: Get transaction summary aggregates
    *     description: |
    *       Returns chart aggregates for the Visualization tab.
+   *       Accepts the same filter query parameters as `GET /api/transactions`.
    *       `categoryTotals` sums expense amounts per category.
    *       `dailyTotals` covers the last 7 calendar days (oldest to newest),
    *       with zero-filled days when there is no activity.
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: Include transactions on or after this date (YYYY-MM-DD)
+   *       - in: query
+   *         name: endDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: Include transactions on or before this date (YYYY-MM-DD)
+   *       - in: query
+   *         name: categories
+   *         schema:
+   *           type: array
+   *           items:
+   *             type: string
+   *             enum: [Food, Transport, Utilities, Entertainment, Salary, Investment]
+   *         style: form
+   *         explode: true
+   *         description: Filter by one or more categories (repeat the parameter or use comma-separated values)
+   *       - in: query
+   *         name: type
+   *         schema:
+   *           type: string
+   *           enum: [expense, income]
+   *         description: Filter by transaction type
    *     responses:
    *       200:
    *         description: Category and daily aggregates
@@ -197,9 +227,22 @@ export function createTransactionsRouter(
    *                 - date: "2026-05-30"
    *                   income: 4200
    *                   expense: 167.5
+   *       400:
+   *         description: Invalid filter parameters
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
-  router.get('/summary', (_req, res) => {
-    res.status(200).json(summaryService.getSummary());
+  router.get('/summary', (req, res) => {
+    try {
+      const criteria = parseTransactionFilterQuery(req.query);
+      res.status(200).json(summaryService.getSummary(criteria));
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid filter parameters',
+      });
+    }
   });
 
   return router;

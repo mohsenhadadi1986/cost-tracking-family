@@ -29,8 +29,8 @@ function daysAgo(days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-function expectedCategoryTotals(): Record<string, number> {
-  return MOCK_TRANSACTIONS.reduce((acc, curr) => {
+function expectedCategoryTotals(transactions = MOCK_TRANSACTIONS): Record<string, number> {
+  return transactions.reduce((acc, curr) => {
     if (curr.type === 'expense') {
       acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
     }
@@ -38,11 +38,13 @@ function expectedCategoryTotals(): Record<string, number> {
   }, {} as Record<string, number>);
 }
 
-function expectedDailyTotals(): Array<{ date: string; income: number; expense: number }> {
+function expectedDailyTotals(
+  transactions = MOCK_TRANSACTIONS
+): Array<{ date: string; income: number; expense: number }> {
   const last7Days = Array.from({ length: 7 }, (_, i) => daysAgo(6 - i));
 
   return last7Days.map(date => {
-    const dayTransactions = MOCK_TRANSACTIONS.filter(t => t.date === date);
+    const dayTransactions = transactions.filter(t => t.date === date);
     return {
       date,
       income: dayTransactions
@@ -283,6 +285,30 @@ describe('Transaction API integration', () => {
       assert.equal(response.status, 200);
       assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals());
       assert.deepEqual(response.body.dailyTotals, expectedDailyTotals());
+    });
+
+    it('returns aggregates computed from expense transactions only when type=expense', async () => {
+      const { app } = createTestApp(true);
+      const expenseTransactions = MOCK_TRANSACTIONS.filter(t => t.type === 'expense');
+
+      const response = await request(app)
+        .get('/api/transactions/summary')
+        .query({ type: 'expense' });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals(expenseTransactions));
+      assert.deepEqual(response.body.dailyTotals, expectedDailyTotals(expenseTransactions));
+    });
+
+    it('returns 400 for invalid filter parameters', async () => {
+      const { app } = createTestApp(true);
+
+      const response = await request(app)
+        .get('/api/transactions/summary')
+        .query({ type: 'invalid' });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /type must be either expense or income/);
     });
   });
 });
