@@ -1,13 +1,14 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ButtonComponent } from './ui/button.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
   selector: 'app-insert-data',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ButtonComponent],
   template: `
     <h2 class="page-title">Add Transaction</h2>
     <div *ngIf="submitError()" class="card status-banner status-error form-card">
@@ -46,9 +47,9 @@ import { TransactionService } from '../services/transaction.service';
         <input type="text" [(ngModel)]="newTransaction.description" name="description" required [disabled]="submitting()">
       </div>
 
-      <button type="submit" [disabled]="submitting()">
+      <app-button type="submit" variant="primary" [disabled]="submitting()">
         {{ submitting() ? 'Adding…' : 'Add Transaction' }}
-      </button>
+      </app-button>
     </form>
   `
 })
