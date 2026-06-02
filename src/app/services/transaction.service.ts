@@ -113,13 +113,13 @@ export class TransactionService {
   }
 
   getCategoryTotals() {
-    this.transactions();
-    return this.categoryTotals();
+    this.activeFilter();
+    return computeCategoryTotals(this.filteredTransactions());
   }
 
   getDailyTotals() {
-    this.transactions();
-    return this.dailyTotals();
+    this.activeFilter();
+    return computeDailyTotals(this.filteredTransactions());
   }
 
   getLoading() {

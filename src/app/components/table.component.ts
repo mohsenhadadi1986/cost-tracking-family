@@ -50,7 +50,7 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class TableComponent {
-  transactions = this.transactionService.getTransactions();
+  transactions = this.transactionService.getFilteredTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
