@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
+import { parseTransactionFilterQuery } from '../validation/transaction-filter.validation';
 
 export function createTransactionsRouter(
   repository: TransactionRepository,
@@ -16,9 +17,38 @@ export function createTransactionsRouter(
    *       - Transactions
    *     summary: List all transactions
    *     description: |
-   *       Returns all transactions for the Table tab.
+   *       Returns transactions for the Table tab, optionally filtered by query parameters.
    *       Results are ordered by date descending, then id descending.
    *       An empty database returns an empty array.
+   *     parameters:
+   *       - in: query
+   *         name: startDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: Include transactions on or after this date (YYYY-MM-DD)
+   *       - in: query
+   *         name: endDate
+   *         schema:
+   *           type: string
+   *           format: date
+   *         description: Include transactions on or before this date (YYYY-MM-DD)
+   *       - in: query
+   *         name: categories
+   *         schema:
+   *           type: array
+   *           items:
+   *             type: string
+   *             enum: [Food, Transport, Utilities, Entertainment, Salary, Investment]
+   *         style: form
+   *         explode: true
+   *         description: Filter by one or more categories (repeat the parameter or use comma-separated values)
+   *       - in: query
+   *         name: type
+   *         schema:
+   *           type: string
+   *           enum: [expense, income]
+   *         description: Filter by transaction type
    *     responses:
    *       200:
    *         description: List of transactions
@@ -28,9 +58,22 @@ export function createTransactionsRouter(
    *               type: array
    *               items:
    *                 $ref: '#/components/schemas/Transaction'
+   *       400:
+   *         description: Invalid filter parameters
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
-  router.get('/', (_req, res) => {
-    res.status(200).json(repository.findAll());
+  router.get('/', (req, res) => {
+    try {
+      const criteria = parseTransactionFilterQuery(req.query);
+      res.status(200).json(repository.findFiltered(criteria));
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid filter parameters',
+      });
+    }
   });
 
   /**
