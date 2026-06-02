@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Family Expenses">
+  <circle cx="10" cy="11" r="2.5" fill="#2563eb"/>
+  <circle cx="16" cy="9" r="2.5" fill="#2563eb"/>
+  <circle cx="22" cy="11" r="2.5" fill="#2563eb"/>
+  <rect x="8" y="18" width="16" height="2.5" rx="1.25" fill="#2563eb"/>
+  <rect x="8" y="23" width="12" height="2.5" rx="1.25" fill="#2563eb"/>
+</svg>
