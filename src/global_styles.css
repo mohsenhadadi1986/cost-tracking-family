@@ -144,38 +144,6 @@ body {
   box-shadow: var(--shadow);
 }
 
-.tab-button {
-  padding: var(--input-padding-y) var(--space-lg);
-  border: none;
-  background-color: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-base);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.tab-button:hover {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-}
-
-.tab-button.active {
-  background-color: var(--color-primary);
-  color: white;
-}
-
-.tab-button.active:hover {
-  background-color: var(--color-primary-hover);
-  color: white;
-}
-
-.tab-button:focus-visible {
-  outline: var(--focus-outline-width) solid var(--focus-outline-color);
-  outline-offset: var(--focus-outline-offset);
-}
-
 .select-container {
   margin-bottom: var(--space-md);
 }
@@ -564,11 +532,10 @@ button:focus-visible {
     width: 100%;
   }
 
-  .tab-button {
+  .tab-container app-button {
     flex: 1;
     min-width: fit-content;
     min-height: 44px;
-    text-align: center;
   }
 
   button {
@@ -579,8 +546,9 @@ button:focus-visible {
     min-height: 120px;
   }
 
-  .sidebar button,
-  .form-card button {
+  .sidebar app-button,
+  .form-card app-button {
+    display: block;
     width: 100%;
   }
 
@@ -594,7 +562,7 @@ button:focus-visible {
     flex-direction: column;
   }
 
-  .tab-button {
+  .tab-container app-button {
     width: 100%;
   }
 

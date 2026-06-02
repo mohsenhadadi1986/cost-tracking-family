@@ -6,25 +6,28 @@ import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
 import { InsertDataComponent } from './app/components/insert-data.component';
 import { SidebarComponent } from './app/components/sidebar.component';
+import { ButtonComponent } from './app/components/ui/button.component';
 import { ApiHealthService } from './app/services/api-health.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, TableComponent, VisualizationComponent, InsertDataComponent, SidebarComponent],
+  imports: [CommonModule, TableComponent, VisualizationComponent, InsertDataComponent, SidebarComponent, ButtonComponent],
   template: `
     <div class="container">
       <app-sidebar></app-sidebar>
       
       <div class="content">
         <div class="tab-container">
-          <button 
-            *ngFor="let tab of tabs" 
-            (click)="activeTab = tab"
-            [class.active]="activeTab === tab"
-            class="tab-button">
+          <app-button
+            *ngFor="let tab of tabs"
+            type="button"
+            variant="ghost"
+            size="md"
+            [active]="activeTab === tab"
+            (click)="activeTab = tab">
             {{tab}}
-          </button>
+          </app-button>
         </div>
 
         <div [ngSwitch]="activeTab">

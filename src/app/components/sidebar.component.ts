@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ButtonComponent } from './ui/button.component';
 import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionFilter, TransactionTypeFilter } from '../models/transaction-filter.model';
 import { TransactionService } from '../services/transaction.service';
@@ -8,7 +9,7 @@ import { TransactionService } from '../services/transaction.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ButtonComponent],
   template: `
     <details
       class="sidebar sidebar-panel"
@@ -44,8 +45,8 @@ import { TransactionService } from '../services/transaction.service';
         </select>
       </div>
 
-      <button type="button" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</button>
-      <button type="button" (click)="clearFilters()">Clear Filters</button>
+      <app-button type="button" variant="primary" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</app-button>
+      <app-button type="button" variant="secondary" (click)="clearFilters()">Clear Filters</app-button>
     </details>
   `,
   styles: [`
