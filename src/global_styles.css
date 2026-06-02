@@ -263,6 +263,12 @@ tbody tr:last-child td {
   border: 1px solid #fecaca;
 }
 
+.status-info {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-hover);
+  border: 1px solid #93c5fd;
+}
+
 .form-group {
   margin-bottom: var(--space-md);
 }
