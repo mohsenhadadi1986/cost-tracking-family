@@ -34,7 +34,7 @@ import { TransactionService } from '../services/transaction.service';
 
       <header class="sidebar-header">
         <div class="sidebar-brand">
-          <app-logo variant="full" size="lg" alt="Family Expense Manager"></app-logo>
+          <app-logo variant="full" size="lg" alt="Family Expenses"></app-logo>
         </div>
         <p class="sidebar-subtitle">Filter transactions</p>
       </header>
