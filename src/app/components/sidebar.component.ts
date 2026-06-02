@@ -52,11 +52,18 @@ import { TransactionService } from '../services/transaction.service';
         <section class="sidebar-section">
           <h3 class="sidebar-section-label">Type</h3>
           <div class="sidebar-fields">
-            <select [(ngModel)]="selectedType" aria-label="Transaction type">
-              <option value="all">All</option>
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
+            <div class="type-filter" role="group" aria-label="Transaction type">
+              <app-button
+                *ngFor="let option of typeOptions"
+                type="button"
+                variant="ghost"
+                size="sm"
+                [active]="selectedType === option.value"
+                [attr.aria-pressed]="selectedType === option.value"
+                (click)="selectedType = option.value">
+                {{ option.label }}
+              </app-button>
+            </div>
           </div>
         </section>
       </div>
@@ -66,9 +73,31 @@ import { TransactionService } from '../services/transaction.service';
         <app-button type="button" variant="secondary" (click)="clearFilters()">Clear Filters</app-button>
       </div>
     </details>
-  `
+  `,
+  styles: [`
+    .type-filter {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+      padding: var(--space-xs);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-input);
+      border-radius: var(--radius-sm);
+    }
+
+    .type-filter app-button {
+      flex: 1;
+      min-width: fit-content;
+    }
+  `]
 })
 export class SidebarComponent implements OnInit, OnDestroy {
+  readonly typeOptions: { value: TransactionTypeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'expense', label: 'Expense' },
+    { value: 'income', label: 'Income' },
+  ];
+
   categories = [...TRANSACTION_CATEGORIES];
   startDate = '';
   endDate = '';
