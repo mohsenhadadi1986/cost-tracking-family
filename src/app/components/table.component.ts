@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TransactionService } from '../services/transaction.service';
 
@@ -55,6 +55,33 @@ import { TransactionService } from '../services/transaction.service';
           </table>
         </div>
       </div>
+      <div
+        *ngIf="showFooter()"
+        class="table-footer"
+        role="status"
+        aria-live="polite">
+        <span class="table-footer__item">
+          <span class="table-footer__label">Transactions</span>
+          <span class="table-footer__value">{{ footerSummary().count }}</span>
+        </span>
+        <span class="table-footer__item">
+          <span class="table-footer__label">Income</span>
+          <span class="table-footer__value amount-income">{{ footerSummary().totalIncome | currency }}</span>
+        </span>
+        <span class="table-footer__item">
+          <span class="table-footer__label">Expense</span>
+          <span class="table-footer__value amount-expense">{{ footerSummary().totalExpense | currency }}</span>
+        </span>
+        <span class="table-footer__item">
+          <span class="table-footer__label">Net</span>
+          <span
+            class="table-footer__value"
+            [class.amount-income]="footerSummary().netBalance >= 0"
+            [class.amount-expense]="footerSummary().netBalance < 0">
+            {{ footerSummary().netBalance | currency }}
+          </span>
+        </span>
+      </div>
     </div>
   `
 })
@@ -63,6 +90,31 @@ export class TableComponent {
   allTransactions = this.transactionService.getTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
+
+  footerSummary = computed(() => {
+    const rows = this.transactions();
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    for (const transaction of rows) {
+      if (transaction.type === 'income') {
+        totalIncome += transaction.amount;
+      } else {
+        totalExpense += transaction.amount;
+      }
+    }
+
+    return {
+      count: rows.length,
+      totalIncome,
+      totalExpense,
+      netBalance: totalIncome - totalExpense
+    };
+  });
+
+  showFooter = computed(
+    () => !this.loading() && !this.loadError() && this.footerSummary().count > 0
+  );
 
   constructor(private transactionService: TransactionService) {}
 }
