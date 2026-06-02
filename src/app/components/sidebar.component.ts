@@ -16,39 +16,55 @@ import { TransactionService } from '../services/transaction.service';
       class="sidebar sidebar-panel"
       [open]="filtersOpen"
       (toggle)="onFiltersToggle($event)">
-      <summary class="sidebar-toggle">Filters</summary>
+      <summary class="sidebar-toggle">
+        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+        <span class="sidebar-toggle-label">Filters</span>
+      </summary>
 
-      <h2 class="sidebar-title">Family Expenses</h2>
-      <p class="sidebar-subtitle">Filter transactions</p>
+      <header class="sidebar-header">
+        <h2 class="sidebar-title">Family Expenses</h2>
+        <p class="sidebar-subtitle">Filter transactions</p>
+      </header>
 
-      <div class="select-container">
-        <app-date-range-field
-          label="Date Range"
-          [(startDate)]="startDate"
-          [(endDate)]="endDate">
-        </app-date-range-field>
+      <div class="sidebar-body">
+        <section class="sidebar-section">
+          <h3 class="sidebar-section-label">Date Range</h3>
+          <div class="sidebar-fields">
+            <app-date-range-field
+              [label]="''"
+              [(startDate)]="startDate"
+              [(endDate)]="endDate">
+            </app-date-range-field>
+          </div>
+        </section>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-section-label">Categories</h3>
+          <div class="sidebar-fields">
+            <select multiple [(ngModel)]="selectedCategories" aria-label="Categories">
+              <option *ngFor="let category of categories" [value]="category">
+                {{category}}
+              </option>
+            </select>
+          </div>
+        </section>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-section-label">Type</h3>
+          <div class="sidebar-fields">
+            <select [(ngModel)]="selectedType" aria-label="Transaction type">
+              <option value="all">All</option>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+        </section>
       </div>
 
-      <div class="select-container">
-        <label>Categories</label>
-        <select multiple [(ngModel)]="selectedCategories">
-          <option *ngFor="let category of categories" [value]="category">
-            {{category}}
-          </option>
-        </select>
+      <div class="sidebar-actions">
+        <app-button type="button" variant="primary" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</app-button>
+        <app-button type="button" variant="secondary" (click)="clearFilters()">Clear Filters</app-button>
       </div>
-
-      <div class="select-container">
-        <label>Type</label>
-        <select [(ngModel)]="selectedType">
-          <option value="all">All</option>
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
-      </div>
-
-      <app-button type="button" variant="primary" (click)="applyFilters()" [disabled]="dateRangeInvalid">Apply Filters</app-button>
-      <app-button type="button" variant="secondary" (click)="clearFilters()">Clear Filters</app-button>
     </details>
   `
 })
