@@ -23,12 +23,15 @@
   /* Tab navigation */
   --color-tab-track-bg: var(--color-bg);
   --color-tab-track-border: var(--color-border);
-  --color-tab-inactive-text: var(--color-muted);
+  /* #58657a on --color-tab-track-bg: 5.39:1 (WCAG AA) */
+  --color-tab-inactive-text: #58657a;
   --color-tab-inactive-hover-bg: var(--color-bg);
   --color-tab-inactive-hover-text: var(--color-text);
   --color-tab-active-bg: var(--color-primary);
   --color-tab-active-text: var(--color-surface);
   --color-tab-active-hover-bg: var(--color-primary-hover);
+  --color-tab-focus-outline: var(--color-primary);
+  --color-tab-focus-outline-active: var(--color-tab-active-text);
 
   /* Semantic */
   --color-income: #059669;
@@ -245,8 +248,8 @@ body {
   max-width: 100%;
   margin-bottom: var(--space-lg);
   padding: var(--space-xs);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
+  background: var(--color-tab-track-bg);
+  border: 1px solid var(--color-tab-track-border);
   border-radius: var(--radius-full);
   box-shadow: none;
 }
@@ -255,6 +258,38 @@ body {
   border-radius: var(--radius-full);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+.tab-container app-button .btn--ghost {
+  color: var(--color-tab-inactive-text);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.tab-container app-button .btn--ghost:hover:not(:disabled) {
+  background-color: var(--color-tab-inactive-hover-bg);
+  color: var(--color-tab-inactive-hover-text);
+}
+
+.tab-container app-button .btn--ghost.btn--active {
+  background-color: var(--color-tab-active-bg);
+  color: var(--color-tab-active-text);
+  border-color: var(--color-tab-active-bg);
+}
+
+.tab-container app-button .btn--ghost.btn--active:hover:not(:disabled) {
+  background-color: var(--color-tab-active-hover-bg);
+  border-color: var(--color-tab-active-hover-bg);
+  color: var(--color-tab-active-text);
+}
+
+.tab-container app-button .btn:focus-visible {
+  outline: var(--focus-outline-width) solid var(--color-tab-focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.tab-container app-button .btn--ghost.btn--active:focus-visible {
+  outline-color: var(--color-tab-focus-outline-active);
 }
 
 .select-container {
