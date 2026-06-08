@@ -20,6 +20,16 @@
   --color-muted: #64748b;
   --color-neutral-hover: #f8fafc;
 
+  /* Tab navigation */
+  --color-tab-track-bg: var(--color-bg);
+  --color-tab-track-border: var(--color-border);
+  --color-tab-inactive-text: var(--color-muted);
+  --color-tab-inactive-hover-bg: var(--color-bg);
+  --color-tab-inactive-hover-text: var(--color-text);
+  --color-tab-active-bg: var(--color-primary);
+  --color-tab-active-text: var(--color-surface);
+  --color-tab-active-hover-bg: var(--color-primary-hover);
+
   /* Semantic */
   --color-income: #059669;
   --color-expense: #dc2626;
