@@ -6,8 +6,8 @@ import { CategoryMultiSelectComponent } from './ui/category-multi-select.compone
 import { DateRangeFieldComponent } from './ui/date-range-field.component';
 import { TransactionTypeFilterComponent } from './ui/transaction-type-filter.component';
 import { AppLogoComponent } from './ui/app-logo.component';
-import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { TransactionFilter, TransactionTypeFilter } from '../models/transaction-filter.model';
+import { CategoryService } from '../services/category.service';
 import { TransactionService } from '../services/transaction.service';
 
 @Component({
@@ -61,7 +61,7 @@ import { TransactionService } from '../services/transaction.service';
           <div class="sidebar-fields">
             <app-category-multi-select
               label="Categories"
-              [options]="categories"
+              [options]="categoryOptions()"
               [(ngModel)]="selectedCategories">
             </app-category-multi-select>
           </div>
@@ -84,7 +84,8 @@ import { TransactionService } from '../services/transaction.service';
   `
 })
 export class SidebarComponent implements OnInit, OnDestroy {
-  categories = [...TRANSACTION_CATEGORIES];
+  categoryOptions = this.categoryService.getAllCategoryNames();
+
   startDate = '';
   endDate = '';
   selectedCategories: string[] = [];
@@ -96,7 +97,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.filtersOpen = !event.matches;
   };
 
-  constructor(private transactionService: TransactionService) {}
+  constructor(
+    private categoryService: CategoryService,
+    private transactionService: TransactionService
+  ) {}
 
   get dateRangeInvalid(): boolean {
     return !!(this.startDate && this.endDate && this.startDate > this.endDate);
