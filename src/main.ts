@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
 import { InsertDataComponent } from './app/components/insert-data.component';
+import { CategoriesComponent } from './app/components/categories.component';
 import { SidebarComponent } from './app/components/sidebar.component';
 import { ButtonComponent } from './app/components/ui/button.component';
 import { ApiHealthService } from './app/services/api-health.service';
@@ -12,7 +13,7 @@ import { ApiHealthService } from './app/services/api-health.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, TableComponent, VisualizationComponent, InsertDataComponent, SidebarComponent, ButtonComponent],
+  imports: [CommonModule, TableComponent, VisualizationComponent, InsertDataComponent, CategoriesComponent, SidebarComponent, ButtonComponent],
   template: `
     <div class="container">
       <app-sidebar></app-sidebar>
@@ -35,6 +36,7 @@ import { ApiHealthService } from './app/services/api-health.service';
             <app-table *ngSwitchCase="'Table'"></app-table>
             <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
             <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
+            <app-categories *ngSwitchCase="'Categories'"></app-categories>
           </div>
         </div>
       </div>
@@ -42,7 +44,7 @@ import { ApiHealthService } from './app/services/api-health.service';
   `
 })
 export class App implements OnInit {
-  tabs = ['Table', 'Visualization', 'Insert Data'];
+  tabs = ['Table', 'Visualization', 'Insert Data', 'Categories'];
   activeTab = 'Table';
 
   private readonly apiHealth = inject(ApiHealthService);

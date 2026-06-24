@@ -1,8 +1,11 @@
 import { Transaction } from '../models/transaction.model';
-import { TRANSACTION_CATEGORIES } from '../constants/categories';
 
-const [Food, Transport, Utilities, Entertainment, Salary, Investment] =
-  TRANSACTION_CATEGORIES;
+const Food = 'Food';
+const Transport = 'Transport';
+const Utilities = 'Utilities';
+const Entertainment = 'Entertainment';
+const Salary = 'Salary';
+const Investment = 'Investment';
 
 function daysAgo(days: number): string {
   const date = new Date();
