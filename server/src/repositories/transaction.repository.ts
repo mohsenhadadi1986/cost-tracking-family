@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { Transaction } from '../models/transaction.model';
+import { CategoryRepository } from './category.repository';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import {
   CreateTransactionInput,
@@ -9,10 +10,13 @@ import {
 type TransactionRow = Transaction;
 
 export class TransactionRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(
+    private readonly db: Database.Database,
+    private readonly categoryRepository: CategoryRepository
+  ) {}
 
   create(input: CreateTransactionInput): Transaction {
-    validateTransactionInput(input);
+    validateTransactionInput(input, this.categoryRepository);
 
     const row = this.db
       .prepare(`

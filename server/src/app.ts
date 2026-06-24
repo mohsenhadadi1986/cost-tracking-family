@@ -2,9 +2,12 @@ import cors from 'cors';
 import express, { Express } from 'express';
 import type Database from 'better-sqlite3';
 import { createDatabase } from './db/database';
+import { CategoryRepository } from './repositories/category.repository';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { setupOpenApiDocs } from './openapi';
+import { createCategoriesRouter } from './routes/categories.routes';
 import { createTransactionsRouter } from './routes/transactions.routes';
+import { CategoryService } from './services/category.service';
 import { TransactionSummaryService } from './services/transaction-summary.service';
 
 export interface AppContext {
@@ -17,7 +20,9 @@ export function createApp(
   options: { seed?: boolean } = {}
 ): AppContext {
   const db = createDatabase(dbPath, options);
-  const repository = new TransactionRepository(db);
+  const categoryRepository = new CategoryRepository(db);
+  const categoryService = new CategoryService(categoryRepository);
+  const repository = new TransactionRepository(db, categoryRepository);
   const summaryService = new TransactionSummaryService(repository);
 
   const app = express();
@@ -49,7 +54,8 @@ export function createApp(
     res.status(200).json({ status: 'ok' });
   });
 
-  app.use('/api/transactions', createTransactionsRouter(repository, summaryService));
+  app.use('/api/categories', createCategoriesRouter(categoryService));
+  app.use('/api/transactions', createTransactionsRouter(repository, summaryService, categoryRepository));
 
   return { app, db };
 }

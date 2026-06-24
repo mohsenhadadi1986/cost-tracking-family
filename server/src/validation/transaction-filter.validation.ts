@@ -1,5 +1,5 @@
 import type { ParsedQs } from 'qs';
-import { TRANSACTION_CATEGORIES } from '../constants/categories';
+import { CategoryRepository } from '../repositories/category.repository';
 
 export interface TransactionFilterCriteria {
   startDate?: string;
@@ -27,7 +27,10 @@ function parseDateParam(value: unknown, paramName: string): string | undefined {
   return date;
 }
 
-function parseCategoriesParam(value: unknown): string[] | undefined {
+function parseCategoriesParam(
+  value: unknown,
+  categoryRepository: CategoryRepository
+): string[] | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -44,11 +47,10 @@ function parseCategoriesParam(value: unknown): string[] | undefined {
     return undefined;
   }
 
-  const invalidCategory = categories.find(
-    category => !(TRANSACTION_CATEGORIES as readonly string[]).includes(category)
-  );
+  const invalidCategory = categories.find(category => !categoryRepository.existsByName(category));
   if (invalidCategory) {
-    throw new Error(`categories must be one or more of: ${TRANSACTION_CATEGORIES.join(', ')}`);
+    const names = categoryRepository.findAllNames();
+    throw new Error(`categories must be one or more of: ${names.join(', ')}`);
   }
 
   return categories;
@@ -71,10 +73,13 @@ function parseTypeParam(value: unknown): 'expense' | 'income' | undefined {
   throw new Error('type must be either expense or income');
 }
 
-export function parseTransactionFilterQuery(query: ParsedQs): TransactionFilterCriteria {
+export function parseTransactionFilterQuery(
+  query: ParsedQs,
+  categoryRepository: CategoryRepository
+): TransactionFilterCriteria {
   const startDate = parseDateParam(query.startDate, 'startDate');
   const endDate = parseDateParam(query.endDate, 'endDate');
-  const categories = parseCategoriesParam(query.categories);
+  const categories = parseCategoriesParam(query.categories, categoryRepository);
   const type = parseTypeParam(query.type);
 
   if (startDate && endDate && startDate > endDate) {

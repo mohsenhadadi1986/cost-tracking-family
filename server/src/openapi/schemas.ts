@@ -1,5 +1,3 @@
-import { TRANSACTION_CATEGORIES } from '../constants/categories';
-
 const transactionTypeSchema = {
   type: 'string',
   enum: ['expense', 'income'],
@@ -7,7 +5,12 @@ const transactionTypeSchema = {
 
 const transactionCategorySchema = {
   type: 'string',
-  enum: [...TRANSACTION_CATEGORIES],
+  description: 'Category name that exists for the transaction type',
+};
+
+const categoryTypeSchema = {
+  type: 'string',
+  enum: ['expense', 'income'],
 };
 
 const createTransactionRequestProperties = {
@@ -92,6 +95,30 @@ export function getOpenApiSchemas() {
       required: ['error'],
       properties: {
         error: { type: 'string' },
+      },
+    },
+    Category: {
+      type: 'object',
+      required: ['id', 'name', 'type'],
+      properties: {
+        id: { type: 'integer' },
+        name: { type: 'string' },
+        type: categoryTypeSchema,
+      },
+    },
+    CreateCategoryRequest: {
+      type: 'object',
+      required: ['name', 'type'],
+      properties: {
+        name: { type: 'string' },
+        type: categoryTypeSchema,
+      },
+    },
+    UpdateCategoryRequest: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string' },
       },
     },
   };

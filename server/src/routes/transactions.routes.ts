@@ -1,11 +1,13 @@
 import { Router } from 'express';
+import type { CategoryRepository } from '../repositories/category.repository';
 import type { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { parseTransactionFilterQuery } from '../validation/transaction-filter.validation';
 
 export function createTransactionsRouter(
   repository: TransactionRepository,
-  summaryService: TransactionSummaryService
+  summaryService: TransactionSummaryService,
+  categoryRepository: CategoryRepository
 ): Router {
   const router = Router();
 
@@ -39,7 +41,6 @@ export function createTransactionsRouter(
    *           type: array
    *           items:
    *             type: string
-   *             enum: [Food, Transport, Utilities, Entertainment, Salary, Investment]
    *         style: form
    *         explode: true
    *         description: Filter by one or more categories (repeat the parameter or use comma-separated values)
@@ -67,7 +68,7 @@ export function createTransactionsRouter(
    */
   router.get('/', (req, res) => {
     try {
-      const criteria = parseTransactionFilterQuery(req.query);
+      const criteria = parseTransactionFilterQuery(req.query, categoryRepository);
       res.status(200).json(repository.findFiltered(criteria));
     } catch (error) {
       res.status(400).json({
@@ -182,7 +183,6 @@ export function createTransactionsRouter(
    *           type: array
    *           items:
    *             type: string
-   *             enum: [Food, Transport, Utilities, Entertainment, Salary, Investment]
    *         style: form
    *         explode: true
    *         description: Filter by one or more categories (repeat the parameter or use comma-separated values)
@@ -236,7 +236,7 @@ export function createTransactionsRouter(
    */
   router.get('/summary', (req, res) => {
     try {
-      const criteria = parseTransactionFilterQuery(req.query);
+      const criteria = parseTransactionFilterQuery(req.query, categoryRepository);
       res.status(200).json(summaryService.getSummary(criteria));
     } catch (error) {
       res.status(400).json({
