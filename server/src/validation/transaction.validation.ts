@@ -1,9 +1,12 @@
-import { TRANSACTION_CATEGORIES } from '../constants/categories';
 import { Transaction } from '../models/transaction.model';
+import { CategoryRepository } from '../repositories/category.repository';
 
 export type CreateTransactionInput = Omit<Transaction, 'id'>;
 
-export function validateTransactionInput(input: CreateTransactionInput): void {
+export function validateTransactionInput(
+  input: CreateTransactionInput,
+  categoryRepository: CategoryRepository
+): void {
   if (typeof input.date !== 'string' || input.date.trim() === '') {
     throw new Error('date is required');
   }
@@ -24,7 +27,8 @@ export function validateTransactionInput(input: CreateTransactionInput): void {
     throw new Error('amount must be a positive number');
   }
 
-  if (!(TRANSACTION_CATEGORIES as readonly string[]).includes(input.category)) {
-    throw new Error(`category must be one of: ${TRANSACTION_CATEGORIES.join(', ')}`);
+  if (!categoryRepository.existsByNameAndType(input.category, input.type)) {
+    const names = categoryRepository.findNamesByType(input.type);
+    throw new Error(`category must be one of: ${names.join(', ')}`);
   }
 }

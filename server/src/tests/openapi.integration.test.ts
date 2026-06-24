@@ -58,10 +58,15 @@ describe('OpenAPI and Swagger integration', () => {
       assert.ok(spec.paths);
 
       assert.ok(spec.paths['/api/health']);
+      assert.ok(spec.paths['/api/categories']);
       assert.ok(spec.paths['/api/transactions']);
       assert.ok(spec.paths['/api/transactions/summary']);
 
       assert.ok(spec.paths['/api/health'].get);
+      assert.ok(spec.paths['/api/categories'].get);
+      assert.ok(spec.paths['/api/categories'].post);
+      assert.ok(spec.paths['/api/categories/{id}'].patch);
+      assert.ok(spec.paths['/api/categories/{id}'].delete);
       assert.ok(spec.paths['/api/transactions'].get);
       assert.ok(spec.paths['/api/transactions'].post);
       assert.ok(spec.paths['/api/transactions/summary'].get);

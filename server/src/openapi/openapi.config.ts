@@ -28,6 +28,7 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
     ],
     tags: [
       { name: 'Health', description: 'Service health checks' },
+      { name: 'Categories', description: 'Income and expense category management' },
       { name: 'Transactions', description: 'Transaction CRUD and summaries' },
     ],
     components: {

@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { createDatabase } from '../db/database';
+import { CategoryRepository } from '../repositories/category.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
@@ -48,7 +49,8 @@ function expectedDailyTotals(transactions: Omit<Transaction, 'id'>[]) {
 
 try {
   const db = createDatabase(dbPath);
-  const repository = new TransactionRepository(db);
+  const categoryRepository = new CategoryRepository(db);
+  const repository = new TransactionRepository(db, categoryRepository);
   const summaryService = new TransactionSummaryService(repository);
 
   const seeded = repository.findAll();
