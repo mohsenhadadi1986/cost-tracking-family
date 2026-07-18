@@ -30,6 +30,7 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
       { name: 'Health', description: 'Service health checks' },
       { name: 'Categories', description: 'Income and expense category management' },
       { name: 'Transactions', description: 'Transaction CRUD and summaries' },
+      { name: 'Receipts', description: 'Receipt OCR and draft field extraction' },
     ],
     components: {
       schemas: getOpenApiSchemas(),

@@ -121,5 +121,57 @@ export function getOpenApiSchemas() {
         name: { type: 'string' },
       },
     },
+    ReceiptScanConfidence: {
+      type: 'object',
+      properties: {
+        overall: {
+          type: 'number',
+          description: 'Overall OCR confidence score',
+        },
+        date: {
+          type: 'number',
+          description: 'Confidence for the extracted date',
+        },
+        amount: {
+          type: 'number',
+          description: 'Confidence for the extracted amount',
+        },
+        description: {
+          type: 'number',
+          description: 'Confidence for the extracted description',
+        },
+        suggestedCategory: {
+          type: 'number',
+          description: 'Confidence for the suggested category',
+        },
+      },
+    },
+    ReceiptScanResponse: {
+      type: 'object',
+      properties: {
+        date: {
+          type: 'string',
+          format: 'date',
+          description: 'Extracted transaction date (YYYY-MM-DD)',
+        },
+        amount: {
+          type: 'number',
+          minimum: 0,
+          exclusiveMinimum: true,
+          description: 'Extracted transaction amount',
+        },
+        description: {
+          type: 'string',
+          description: 'Extracted merchant or line-item description',
+        },
+        suggestedCategory: {
+          type: 'string',
+          description: 'Best-guess category based on receipt text',
+        },
+        confidence: {
+          $ref: '#/components/schemas/ReceiptScanConfidence',
+        },
+      },
+    },
   };
 }
