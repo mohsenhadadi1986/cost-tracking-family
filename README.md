@@ -13,6 +13,7 @@ Family expense tracking app with an Angular frontend and Express API backed by S
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP port for the Express API |
 | `DATABASE_PATH` | `server/data/transactions.db` | Absolute or relative path to the SQLite database file |
+| `NODE_ENV` | (unset) | Set to `production` to disable Swagger, skip mock transaction seed, and omit localhost CORS |
 
 Set variables inline when starting the server, for example:
 
@@ -53,6 +54,10 @@ Build and run the API for production-style local testing:
 npm run server:build
 npm run server:start
 ```
+
+## Production deploy (VPS next to QuickDish)
+
+See **[`deploy/README.md`](deploy/README.md)** for Docker Compose, domain `ai-eos.it`, nginx Basic Auth, and Let’s Encrypt steps alongside the existing QuickDish stack on the same VPS.
 
 ## Branding
 

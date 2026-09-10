@@ -19,9 +19,13 @@ export interface AppContext {
 
 export function createApp(
   dbPath?: string,
-  options: { seed?: boolean } = {}
+  options: { seed?: boolean; enableOpenApi?: boolean } = {}
 ): AppContext {
-  const db = createDatabase(dbPath, options);
+  const isProduction = process.env.NODE_ENV === 'production';
+  const shouldSeed = options.seed ?? !isProduction;
+  const shouldEnableOpenApi = options.enableOpenApi ?? !isProduction;
+
+  const db = createDatabase(dbPath, { seed: shouldSeed });
   const categoryRepository = new CategoryRepository(db);
   const categoryService = new CategoryService(categoryRepository);
   const repository = new TransactionRepository(db, categoryRepository);
@@ -29,13 +33,17 @@ export function createApp(
   const receiptScanService = new ReceiptScanService(categoryRepository);
 
   const app = express();
-  const angularDevOrigin = 'http://localhost:4200';
 
-  app.use(cors({ origin: angularDevOrigin }));
+  // Dev: Angular CLI on :4200. Prod: same-origin behind nginx — no CORS needed.
+  if (!isProduction) {
+    app.use(cors({ origin: 'http://localhost:4200' }));
+  }
   app.use(express.json());
 
   const port = Number(process.env.PORT) || 3000;
-  setupOpenApiDocs(app, port);
+  if (shouldEnableOpenApi) {
+    setupOpenApiDocs(app, port);
+  }
 
   /**
    * @openapi

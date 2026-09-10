@@ -1,0 +1,10 @@
+.angular
+.git
+.cursor
+dist
+node_modules
+server
+docs
+*.md
+.preview-proxy.conf.json
+proxy.conf.json

@@ -1,0 +1,39 @@
+# Family expense app: frontend + backend only.
+# Joins QuickDish's docker network so nginx-proxy can route ai-eos.it.
+# Run from this directory: cd deploy && docker compose -f docker-compose-prod.yml up -d --build
+# Requires QuickDish stack running (external network quickdish_default).
+
+name: cost-tracking-family
+
+services:
+  backend:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: cost-tracking-backend
+    restart: always
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_PATH=/data/transactions.db
+    volumes:
+      - sqlite_data:/data
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile.prod
+    container_name: cost-tracking-frontend
+    restart: always
+    expose:
+      - "80"
+
+volumes:
+  sqlite_data:
+
+networks:
+  default:
+    name: quickdish_default
+    external: true

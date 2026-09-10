@@ -1,0 +1,9 @@
+node_modules
+dist
+data
+*.traineddata
+**/*.test.ts
+src/tests
+src/scripts
+scripts
+*.md
