@@ -66,6 +66,15 @@ cd /path/to/QuickDish/deploy
 docker compose -f docker-compose-prod.yml -f docker-compose.family.yml up -d nginx
 ```
 
+If **zenner.ai-eos.it** is also live, include that overlay or nginx drops it:
+
+```bash
+docker compose -f docker-compose-prod.yml \
+  -f docker-compose.family.yml \
+  -f docker-compose.zenner.yml \
+  up -d nginx
+```
+
 Test HTTP (expect Basic Auth challenge, then the app):
 
 ```bash
@@ -99,8 +108,13 @@ Then:
 
 ```bash
 cd /path/to/QuickDish/deploy
-docker compose -f docker-compose-prod.yml -f docker-compose.family.yml up -d nginx
+docker compose -f docker-compose-prod.yml \
+  -f docker-compose.family.yml \
+  -f docker-compose.zenner.yml \
+  up -d nginx
 ```
+
+(Omit `-f docker-compose.zenner.yml` only if Zenner is not deployed yet.)
 
 Verify:
 
