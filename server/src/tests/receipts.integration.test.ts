@@ -7,6 +7,8 @@ import request from 'supertest';
 import { createApp } from '../app';
 import type Database from 'better-sqlite3';
 
+process.env.TESSERACT_LANGS = process.env.TESSERACT_LANGS ?? 'eng';
+
 const openDatabases: Database.Database[] = [];
 const dbPaths: string[] = [];
 const fixturePath = path.join(__dirname, 'fixtures', 'sample-receipt.png');

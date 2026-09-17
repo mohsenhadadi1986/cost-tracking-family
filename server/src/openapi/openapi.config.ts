@@ -29,6 +29,7 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
     tags: [
       { name: 'Health', description: 'Service health checks' },
       { name: 'Categories', description: 'Income and expense category management' },
+      { name: 'Accounts', description: 'Money places such as banks, Satispay, and PayPal' },
       { name: 'Transactions', description: 'Transaction CRUD and summaries' },
       { name: 'Receipts', description: 'Receipt OCR and draft field extraction' },
     ],

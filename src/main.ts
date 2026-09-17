@@ -4,39 +4,45 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
+import { ChartsComponent } from './app/components/charts.component';
 import { InsertDataComponent } from './app/components/insert-data.component';
 import { CategoriesComponent } from './app/components/categories.component';
 import { SidebarComponent } from './app/components/sidebar.component';
 import { ButtonComponent } from './app/components/ui/button.component';
+import { GlyphComponent } from './app/components/ui/glyph.component';
 import { ApiHealthService } from './app/services/api-health.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, TableComponent, VisualizationComponent, InsertDataComponent, CategoriesComponent, SidebarComponent, ButtonComponent],
+  imports: [CommonModule, TableComponent, VisualizationComponent, ChartsComponent, InsertDataComponent, CategoriesComponent, SidebarComponent, ButtonComponent, GlyphComponent],
   template: `
     <div class="container">
       <app-sidebar></app-sidebar>
       
       <div class="content">
-        <div class="tab-container">
+        <nav class="tab-container" aria-label="Main">
           <app-button
             *ngFor="let tab of tabs"
             type="button"
             variant="ghost"
             size="md"
-            [active]="activeTab === tab"
-            (click)="activeTab = tab">
-            {{tab}}
+            [active]="activeTab === tab.id"
+            [attr.aria-current]="activeTab === tab.id ? 'page' : null"
+            (click)="activeTab = tab.id">
+            <app-glyph set="tab" [name]="tab.id" size="sm"></app-glyph>
+            <span class="tab-label tab-label--full">{{ tab.label }}</span>
+            <span class="tab-label tab-label--short">{{ tab.shortLabel }}</span>
           </app-button>
-        </div>
+        </nav>
 
         <div class="content-main" [class.content-main--table]="activeTab === 'Table'">
           <div [ngSwitch]="activeTab">
             <app-table *ngSwitchCase="'Table'"></app-table>
             <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
+            <app-charts *ngSwitchCase="'Charts'"></app-charts>
             <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
-            <app-categories *ngSwitchCase="'Categories'"></app-categories>
+            <app-categories *ngSwitchCase="'Settings'"></app-categories>
           </div>
         </div>
       </div>
@@ -44,8 +50,14 @@ import { ApiHealthService } from './app/services/api-health.service';
   `
 })
 export class App implements OnInit {
-  tabs = ['Table', 'Visualization', 'Insert Data', 'Categories'];
-  activeTab = 'Table';
+  readonly tabs = [
+    { id: 'Table', label: 'Table', shortLabel: 'Table' },
+    { id: 'Visualization', label: 'Overview', shortLabel: 'Overview' },
+    { id: 'Charts', label: 'Charts', shortLabel: 'Charts' },
+    { id: 'Insert Data', label: 'Insert Data', shortLabel: 'Add' },
+    { id: 'Settings', label: 'Settings', shortLabel: 'Settings' },
+  ] as const;
+  activeTab: 'Table' | 'Visualization' | 'Charts' | 'Insert Data' | 'Settings' = 'Table';
 
   private readonly apiHealth = inject(ApiHealthService);
 

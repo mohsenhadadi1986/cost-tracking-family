@@ -6,6 +6,8 @@ import {
   Input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { GlyphComponent } from './glyph.component';
+import { GlyphSet } from '../../utils/glyph';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 let nextCategorySelectId = 0;
@@ -13,7 +15,7 @@ let nextCategorySelectId = 0;
 @Component({
   selector: 'app-category-select',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, GlyphComponent],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -41,6 +43,7 @@ let nextCategorySelectId = 0;
           <span
             class="category-select__summary"
             [class.category-select__summary--placeholder]="!value">
+            <app-glyph *ngIf="value" [set]="iconSet" [name]="value" size="sm"></app-glyph>
             {{ displayText }}
           </span>
           <span class="category-select__chevron" aria-hidden="true"></span>
@@ -63,6 +66,7 @@ let nextCategorySelectId = 0;
             [attr.id]="optionId(index)"
             (click)="selectCategory(category)"
             (keydown)="onOptionKeydown($event, category, index)">
+            <app-glyph [set]="iconSet" [name]="category" size="sm"></app-glyph>
             <span>{{ category }}</span>
           </button>
         </div>
@@ -130,6 +134,9 @@ let nextCategorySelectId = 0;
     }
 
     .category-select__summary {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -172,6 +179,7 @@ let nextCategorySelectId = 0;
     .category-select__option {
       display: flex;
       align-items: center;
+      gap: var(--space-sm);
       width: 100%;
       padding: var(--space-sm);
       border: 0;
@@ -210,10 +218,11 @@ export class CategorySelectComponent implements ControlValueAccessor {
   @Input() options: readonly string[] = [];
   @Input() label = 'Category';
   @Input() placeholder = 'Select a category';
+  @Input() iconSet: GlyphSet = 'category';
 
   value = '';
   open = false;
-  disabled = false;
+  @Input() disabled = false;
   focusedOptionIndex = -1;
 
   readonly labelId = `category-select-label-${nextCategorySelectId}`;

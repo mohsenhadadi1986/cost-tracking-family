@@ -3,11 +3,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { createDatabase } from '../db/database';
+import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
-import { Transaction } from '../models/transaction.model';
+import { buildSummary } from '../services/period-totals';
 
 const dbPath = path.join(os.tmpdir(), `cost-tracking-verify-${Date.now()}.db`);
 
@@ -17,49 +18,22 @@ function daysAgo(days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-function expectedCategoryTotals(transactions: Omit<Transaction, 'id'>[]): Record<string, number> {
-  return transactions.reduce((acc, curr) => {
-    if (curr.type === 'expense') {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function expectedDailyTotals(transactions: Omit<Transaction, 'id'>[]) {
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    return date.toISOString().split('T')[0];
-  }).reverse();
-
-  return last7Days.map(date => {
-    const dayTransactions = transactions.filter(t => t.date === date);
-    return {
-      date,
-      income: dayTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0),
-      expense: dayTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0),
-    };
-  });
-}
-
 try {
   const db = createDatabase(dbPath);
   const categoryRepository = new CategoryRepository(db);
-  const repository = new TransactionRepository(db, categoryRepository);
-  const summaryService = new TransactionSummaryService(repository);
+  const accountRepository = new AccountRepository(db);
+  const repository = new TransactionRepository(db, categoryRepository, accountRepository);
+  const summaryService = new TransactionSummaryService(repository, accountRepository);
 
   const seeded = repository.findAll();
   assert.equal(seeded.length, MOCK_TRANSACTIONS.length, 'seed should load mock transactions');
 
   const summary = summaryService.getSummary();
-  assert.deepEqual(summary.categoryTotals, expectedCategoryTotals(MOCK_TRANSACTIONS));
-  assert.equal(summary.dailyTotals.length, 7, 'dailyTotals should cover the last 7 days');
-  assert.deepEqual(summary.dailyTotals, expectedDailyTotals(MOCK_TRANSACTIONS));
+  const expected = buildSummary(MOCK_TRANSACTIONS);
+  assert.deepEqual(summary.categoryTotals, expected.categoryTotals);
+  assert.deepEqual(summary.incomeByCategory, expected.incomeByCategory);
+  assert.equal(summary.netBalance, expected.netBalance);
+  assert.deepEqual(summary.dailyTotals, expected.dailyTotals);
 
   const created = repository.create({
     date: daysAgo(0),
@@ -67,6 +41,7 @@ try {
     type: 'expense',
     amount: 12.5,
     description: 'Verification transaction',
+    account: 'ING Current Account',
   });
 
   assert.equal(created.id, seeded.length + 1);
@@ -84,6 +59,7 @@ try {
         type: 'invalid' as 'expense',
         amount: 10,
         description: 'Bad type',
+        account: 'ING Current Account',
       }),
     /type must be either expense or income/
   );
@@ -96,6 +72,7 @@ try {
         type: 'expense',
         amount: 0,
         description: 'Bad amount',
+        account: 'ING Current Account',
       }),
     /amount must be a positive number/
   );

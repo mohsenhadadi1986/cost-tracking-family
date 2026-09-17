@@ -19,9 +19,9 @@ FROM node:18-bookworm-slim
 
 WORKDIR /app
 
-# Runtime needs for native better-sqlite3
+# Runtime needs for native better-sqlite3 and sharp
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
+  && apt-get install -y --no-install-recommends ca-certificates libvips42 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/package.json /app/package-lock.json ./

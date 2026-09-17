@@ -130,17 +130,18 @@ export function createTransactionsRouter(
    *               invalidCategory:
    *                 summary: Invalid category
    *                 value:
-   *                   error: "category must be one of: Food, Transport, Utilities, Entertainment, Salary, Investment"
+   *                   error: "category must be one of: Food, Fuel, Utilities, Entertainment, Salary, Investment"
    */
   router.post('/', (req, res) => {
     try {
-      const { date, category, type, amount, description } = req.body;
+      const { date, category, type, amount, description, account } = req.body;
       const input = {
         date,
         category,
         type,
         amount,
         description,
+        account,
       };
       const created = repository.create(input);
       res.status(201).json(created);
@@ -162,8 +163,10 @@ export function createTransactionsRouter(
    *       Returns chart aggregates for the Visualization tab.
    *       Accepts the same filter query parameters as `GET /api/transactions`.
    *       `categoryTotals` sums expense amounts per category.
-   *       `dailyTotals` covers the last 7 calendar days (oldest to newest),
-   *       with zero-filled days when there is no activity.
+   *       `incomeByCategory` sums income amounts per source.
+   *       `dailyTotals` zero-fills the requested date range (daily buckets, or
+   *       monthly when the range is longer than 62 days). Without dates, buckets
+   *       span the earliest to latest matching transaction.
    *     parameters:
    *       - in: query
    *         name: startDate
@@ -202,29 +205,15 @@ export function createTransactionsRouter(
    *             example:
    *               categoryTotals:
    *                 Food: 299.8
-   *                 Transport: 295.5
-   *                 Utilities: 342
-   *                 Entertainment: 200
+   *                 Fuel: 42
+   *               incomeByCategory:
+   *                 Salary: 4550
+   *                 Investment: 445
+   *               totalIncome: 4995
+   *               totalExpense: 1137.3
+   *               netBalance: 3857.7
    *               dailyTotals:
-   *                 - date: "2026-05-24"
-   *                   income: 220
-   *                   expense: 76.4
-   *                 - date: "2026-05-25"
-   *                   income: 75
-   *                   expense: 242
-   *                 - date: "2026-05-26"
-   *                   income: 350
-   *                   expense: 129.9
-   *                 - date: "2026-05-27"
-   *                   income: 0
-   *                   expense: 179.5
-   *                 - date: "2026-05-28"
-   *                   income: 150
-   *                   expense: 83.25
-   *                 - date: "2026-05-29"
-   *                   income: 0
-   *                   expense: 258.75
-   *                 - date: "2026-05-30"
+   *                 - date: "2026-09-01"
    *                   income: 4200
    *                   expense: 167.5
    *       400:

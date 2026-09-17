@@ -1,23 +1,43 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Observable, catchError, finalize, map, of, switchMap, tap, throwError } from 'rxjs';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
 import { TransactionFilter } from '../models/transaction-filter.model';
 import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
+import { AccountService } from './account.service';
 import { matchesFilter } from '../utils/matches-filter';
+import { hasCustomSidebarDates, OverviewInterval, resolveOverviewRange } from '../utils/overview-interval';
+import { resolveTransactionSettlement } from '../utils/credit-card';
+import { buildSummary } from '../utils/period-totals';
 import { environment } from '../../environments/environment';
+
+const EMPTY_SUMMARY: TransactionSummaryResponse = {
+  categoryTotals: {},
+  incomeByCategory: {},
+  dailyTotals: [],
+  totalIncome: 0,
+  totalExpense: 0,
+  netBalance: 0,
+  currentBalance: 0,
+  accountBalances: [],
+  incomeByAccount: [],
+  expenseByAccount: [],
+  creditCardDues: [],
+};
 
 @Injectable({
   providedIn: 'root'
 })
 export class TransactionService {
   private readonly http = inject(HttpClient);
+  private readonly accountService = inject(AccountService);
   private readonly transactionsUrl = `${environment.apiBaseUrl}/api/transactions`;
   private readonly summaryUrl = `${this.transactionsUrl}/summary`;
 
   private transactions = signal<Transaction[]>([]);
   private activeFilter = signal<TransactionFilter | null>(null);
+  private overviewInterval = signal<OverviewInterval>('month');
   private filteredTransactions = computed(() => {
     const filter = this.activeFilter();
     const all = this.transactions();
@@ -26,14 +46,18 @@ export class TransactionService {
     }
     return all.filter(transaction => matchesFilter(transaction, filter));
   });
-  private categoryTotals = signal<Record<string, number>>({});
-  private dailyTotals = signal<DailyTotal[]>([]);
+  private summary = signal<TransactionSummaryResponse>(EMPTY_SUMMARY);
+  private summaryRequestId = 0;
   private loading = signal(true);
   private loadError = signal<string | null>(null);
   private submitting = signal(false);
   private submitError = signal<string | null>(null);
 
   constructor() {
+    effect(() => {
+      this.accountService.getAccounts()();
+      this.applySummaryFromTransactions();
+    }, { allowSignalWrites: true });
     this.loadTransactions().subscribe();
   }
 
@@ -45,10 +69,8 @@ export class TransactionService {
       this.isMockMode()
         ? this.loadMockTransactions()
         : this.http.get<Transaction[]>(this.transactionsUrl, this.httpOptionsWithFilter()).pipe(
-            tap(transactions => {
-              this.transactions.set(transactions);
-              this.refreshSummary().subscribe();
-            })
+            tap(transactions => this.transactions.set(transactions)),
+            switchMap(transactions => this.refreshSummary().pipe(map(() => transactions)))
           );
 
     return source$.pipe(
@@ -60,14 +82,20 @@ export class TransactionService {
     );
   }
 
-  addTransaction(transaction: Omit<Transaction, 'id'>): Observable<Transaction> {
+  addTransaction(
+    transaction: Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount'>
+  ): Observable<Transaction> {
     this.submitting.set(true);
     this.submitError.set(null);
 
     const source$ =
       this.isMockMode()
         ? (() => {
-            const created: Transaction = { ...transaction, id: Date.now() };
+            const created: Transaction = {
+              ...transaction,
+              ...resolveTransactionSettlement(transaction, this.accountService.getAccounts()()),
+              id: Date.now(),
+            };
             this.transactions.update(prev => [created, ...prev]);
             this.applySummaryFromTransactions();
             return of(created);
@@ -104,10 +132,28 @@ export class TransactionService {
     return this.activeFilter.asReadonly();
   }
 
+  getOverviewInterval() {
+    return this.overviewInterval.asReadonly();
+  }
+
+  setOverviewInterval(interval: OverviewInterval): void {
+    this.overviewInterval.set(interval);
+    this.applySummaryFromTransactions();
+    if (!this.isMockMode()) {
+      this.refreshSummary().subscribe();
+    }
+  }
+
+  usesSidebarDateRange(): boolean {
+    return hasCustomSidebarDates(this.activeFilter());
+  }
+
   setFilters(filter: TransactionFilter): void {
     this.activeFilter.set(filter);
     if (!this.isMockMode()) {
       this.loadTransactions().subscribe();
+    } else {
+      this.applySummaryFromTransactions();
     }
   }
 
@@ -115,6 +161,8 @@ export class TransactionService {
     this.activeFilter.set(null);
     if (!this.isMockMode()) {
       this.loadTransactions().subscribe();
+    } else {
+      this.applySummaryFromTransactions();
     }
   }
 
@@ -122,20 +170,16 @@ export class TransactionService {
     return this.activeFilter() !== null;
   }
 
-  getCategoryTotals() {
-    if (this.hasActiveFilters() && this.isMockMode()) {
-      return computeCategoryTotals(this.filteredTransactions());
-    }
-    this.transactions();
-    return this.categoryTotals();
+  getSummary() {
+    return this.summary.asReadonly();
   }
 
-  getDailyTotals() {
-    if (this.hasActiveFilters() && this.isMockMode()) {
-      return computeDailyTotals(this.filteredTransactions());
-    }
-    this.transactions();
-    return this.dailyTotals();
+  getCategoryTotals() {
+    return this.summary().categoryTotals;
+  }
+
+  getDailyTotals(): DailyTotal[] {
+    return this.summary().dailyTotals;
   }
 
   getLoading() {
@@ -163,9 +207,31 @@ export class TransactionService {
     return params ? { params } : {};
   }
 
+  private overviewSummaryParams(): { params: HttpParams } {
+    const filter = this.activeFilter();
+    const range = resolveOverviewRange(this.overviewInterval(), filter);
+    let params = new HttpParams()
+      .set('startDate', range.startDate)
+      .set('endDate', range.endDate);
+
+    if (filter) {
+      for (const category of filter.categories) {
+        params = params.append('categories', category);
+      }
+
+      if (filter.type !== 'all') {
+        params = params.set('type', filter.type);
+      }
+    }
+
+    return { params };
+  }
+
   private loadMockTransactions(): Observable<Transaction[]> {
     const mockTransactions = MOCK_TRANSACTIONS.map((transaction, index) => ({
       ...transaction,
+      settlementDate: transaction.settlementDate ?? transaction.date,
+      settlementAccount: transaction.settlementAccount ?? transaction.account,
       id: index + 1
     }));
 
@@ -176,22 +242,42 @@ export class TransactionService {
   }
 
   private refreshSummary(): Observable<void> {
-    return this.http.get<TransactionSummaryResponse>(this.summaryUrl, this.httpOptionsWithFilter()).pipe(
+    const requestId = ++this.summaryRequestId;
+
+    if (this.isMockMode()) {
+      this.applySummaryFromTransactions();
+      return of(undefined);
+    }
+
+    return this.http.get<TransactionSummaryResponse>(this.summaryUrl, this.overviewSummaryParams()).pipe(
       tap(summary => {
-        this.categoryTotals.set(summary.categoryTotals);
-        this.dailyTotals.set(summary.dailyTotals);
+        if (requestId === this.summaryRequestId) {
+          this.summary.set(summary);
+        }
       }),
       map(() => undefined),
       catchError(() => {
-        this.applySummaryFromTransactions();
+        if (requestId === this.summaryRequestId) {
+          this.applySummaryFromTransactions();
+        }
         return of(undefined);
       })
     );
   }
 
   private applySummaryFromTransactions(): void {
-    this.categoryTotals.set(computeCategoryTotals(this.transactions()));
-    this.dailyTotals.set(computeDailyTotals(this.transactions()));
+    const filter = this.activeFilter();
+    const range = resolveOverviewRange(this.overviewInterval(), filter);
+    const rows = this.filteredTransactions().filter(transaction =>
+      transaction.date >= range.startDate && transaction.date <= range.endDate
+    );
+    this.summary.set(buildSummary(rows, range.startDate, range.endDate, {
+      lifetimeTransactions: this.transactions(),
+      accounts: this.accountService.getAccounts()().map(account => ({
+        name: account.name,
+        kind: account.kind,
+      })),
+    }));
   }
 }
 
@@ -240,35 +326,4 @@ function toUserFriendlyMessage(error: unknown): string {
   }
 
   return 'Something went wrong. Please try again.';
-}
-
-function computeCategoryTotals(transactions: Transaction[]): Record<string, number> {
-  return transactions.reduce((acc, curr) => {
-    if (curr.type === 'expense') {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function computeDailyTotals(transactions: Transaction[]): DailyTotal[] {
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    return date.toISOString().split('T')[0];
-  }).reverse();
-
-  return last7Days.map(date => {
-    const dayTransactions = transactions.filter(t => t.date === date);
-
-    return {
-      date,
-      income: dayTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0),
-      expense: dayTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
-    };
-  });
 }

@@ -2,12 +2,15 @@ import cors from 'cors';
 import express, { Express } from 'express';
 import type Database from 'better-sqlite3';
 import { createDatabase } from './db/database';
+import { AccountRepository } from './repositories/account.repository';
 import { CategoryRepository } from './repositories/category.repository';
 import { TransactionRepository } from './repositories/transaction.repository';
 import { setupOpenApiDocs } from './openapi';
+import { createAccountsRouter } from './routes/accounts.routes';
 import { createCategoriesRouter } from './routes/categories.routes';
 import { createReceiptsRouter } from './routes/receipts.routes';
 import { createTransactionsRouter } from './routes/transactions.routes';
+import { AccountService } from './services/account.service';
 import { CategoryService } from './services/category.service';
 import { ReceiptScanService } from './services/receipt-scan.service';
 import { TransactionSummaryService } from './services/transaction-summary.service';
@@ -27,9 +30,11 @@ export function createApp(
 
   const db = createDatabase(dbPath, { seed: shouldSeed });
   const categoryRepository = new CategoryRepository(db);
+  const accountRepository = new AccountRepository(db);
   const categoryService = new CategoryService(categoryRepository);
-  const repository = new TransactionRepository(db, categoryRepository);
-  const summaryService = new TransactionSummaryService(repository);
+  const accountService = new AccountService(accountRepository);
+  const repository = new TransactionRepository(db, categoryRepository, accountRepository);
+  const summaryService = new TransactionSummaryService(repository, accountRepository);
   const receiptScanService = new ReceiptScanService(categoryRepository);
 
   const app = express();
@@ -66,6 +71,7 @@ export function createApp(
   });
 
   app.use('/api/categories', createCategoriesRouter(categoryService));
+  app.use('/api/accounts', createAccountsRouter(accountService));
   app.use('/api/transactions', createTransactionsRouter(repository, summaryService, categoryRepository));
   app.use('/api/receipts', createReceiptsRouter(receiptScanService));
 

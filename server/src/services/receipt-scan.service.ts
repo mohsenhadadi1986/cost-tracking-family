@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 import type { CategoryRepository } from '../repositories/category.repository';
 import type { ReceiptScanConfidence, ReceiptScanResponse } from '../models/receipt-scan.model';
@@ -17,11 +18,43 @@ const MONTH_NAMES = [
   'dec',
 ] as const;
 
+const ITALIAN_MONTHS: Record<string, number> = {
+  gennaio: 1,
+  feb: 2,
+  febbraio: 2,
+  marzo: 3,
+  aprile: 4,
+  maggio: 5,
+  giugno: 6,
+  luglio: 7,
+  agosto: 8,
+  settembre: 9,
+  ottobre: 10,
+  novembre: 11,
+  dicembre: 12,
+};
+
+const TOTAL_LINE_PATTERN =
+  /\b(totale\s+complessivo|grand\s+total|amount\s+due|balance\s+due|importo\s+dovuto|importo\s+totale|totale\s+euro|totale|total\s+due|total|importo|da\s+pagare)\b[:\s.-]*([$€£]?\s*\d[\d.]*[.,]\d{2})/i;
+
 const CATEGORY_KEYWORDS: Record<string, readonly string[]> = {
-  Food: ['food', 'grocery', 'groceries', 'restaurant', 'cafe', 'coffee', 'market', 'bakery', 'deli'],
-  Transport: ['transport', 'gas', 'fuel', 'uber', 'lyft', 'taxi', 'parking', 'transit', 'metro'],
-  Utilities: ['utility', 'utilities', 'electric', 'water', 'internet', 'phone', 'power', 'energy'],
-  Entertainment: ['entertainment', 'movie', 'cinema', 'theater', 'game', 'concert', 'streaming'],
+  Food: ['food', 'grocery', 'groceries', 'restaurant', 'cafe', 'coffee', 'market', 'bakery', 'deli', 'cibo', 'alimentari', 'supermercato', 'conad', 'esselunga', 'coop', 'lidl', 'eurospin'],
+  'Baby school': ['asilo', 'scuola', 'nido', 'school', 'kindergarten', 'baby', 'mensa scolastica'],
+  'Car maintenance': ['officina', 'meccanico', 'revision', 'gomme', 'mechanic', 'car maintenance', 'autoripar'],
+  'Public transport': ['atm', 'trenitalia', 'italo', 'bus', 'metro', 'transit', 'biglietto', 'abbonamento', 'train'],
+  Fuel: ['fuel', 'gasoline', 'petrol', 'diesel', 'carburante', 'benzina', 'enilive', 'q8', 'shell', 'ip station', 'esso', 'gas station'],
+  Tolls: ['toll', 'pedaggio', 'telepass', 'autostrad', 'parking', 'parcheggio', 'sosta'],
+  'Insurance home': ['home insurance', 'assicurazione casa', 'polizza casa', 'generali casa'],
+  'Insurance car': ['car insurance', 'rc auto', 'assicurazione auto', 'polizza auto', 'unipol', 'generali auto'],
+  WiFi: ['wifi', 'fiber', 'fibra', 'internet', 'tim', 'vodafone', 'windtre', 'fastweb', 'iliad'],
+  'Telephone bill': ['telephone', 'telefono', 'bolletta cellulare', 'mobile bill', 'phone bill', 'tim mobile'],
+  Gas: ['gas bill', 'bolletta gas', 'italgas', 'eni gas', 'gas naturale', 'metano casa'],
+  Electricity: ['electric', 'electricity', 'enel', 'luce', 'energia elettrica', 'servizio elettrico', 'a2a luce'],
+  Utilities: ['utility', 'utilities', 'acqua', 'water bill', 'rifiuti', 'tari', 'bolletta'],
+  'Condominio charge': ['condominio', 'spese condominiali', 'amministratore', 'millesimi'],
+  Mortgage: ['mortgage', 'mutuo', 'rata mutuo', 'prestito casa'],
+  'Unexpected cost': ['unexpected', 'imprevisto', 'straordinario', 'urgente'],
+  Entertainment: ['entertainment', 'movie', 'cinema', 'theater', 'game', 'concert', 'streaming', 'netflix', 'spotify'],
 };
 
 export interface ParsedReceiptFields {
@@ -29,6 +62,7 @@ export interface ParsedReceiptFields {
   amount?: number;
   description?: string;
   suggestedCategory?: string;
+  ocrText?: string;
   confidence: ReceiptScanConfidence;
 }
 
@@ -61,6 +95,7 @@ export function parseReceiptText(
     amount,
     description,
     suggestedCategory,
+    ocrText: truncateOcrText(normalizedText),
     confidence,
   };
 }
@@ -72,14 +107,28 @@ function extractDate(text: string): string | undefined {
   }
 
   const namedMonthMatch = text.match(
-    /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:,|\s+)(20\d{2})\b/i
+    /\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:,|\s+)(20\d{2})\b/i
   );
   if (namedMonthMatch) {
-    const monthIndex = MONTH_NAMES.findIndex(month =>
-      namedMonthMatch[1].toLowerCase().startsWith(month)
-    );
+    const monthToken = namedMonthMatch[1].toLowerCase();
+    const italianMonth = ITALIAN_MONTHS[monthToken];
+    if (italianMonth) {
+      return normalizeDateParts(namedMonthMatch[3], String(italianMonth), namedMonthMatch[2]);
+    }
+
+    const monthIndex = MONTH_NAMES.findIndex(month => monthToken.startsWith(month));
     if (monthIndex >= 0) {
       return normalizeDateParts(namedMonthMatch[3], String(monthIndex + 1), namedMonthMatch[2]);
+    }
+  }
+
+  const dayMonthYearNamed = text.match(
+    /\b(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(20\d{2})\b/i
+  );
+  if (dayMonthYearNamed) {
+    const italianMonth = ITALIAN_MONTHS[dayMonthYearNamed[2].toLowerCase()];
+    if (italianMonth) {
+      return normalizeDateParts(dayMonthYearNamed[3], String(italianMonth), dayMonthYearNamed[1]);
     }
   }
 
@@ -90,11 +139,11 @@ function extractDate(text: string): string | undefined {
     const yearPart = numericMatch[3];
     const year = yearPart.length === 2 ? `20${yearPart}` : yearPart;
 
-    if (first > 12 && second <= 12) {
-      return normalizeDateParts(year, String(second), String(first));
+    if (second > 12 && first <= 12) {
+      return normalizeDateParts(year, String(first), String(second));
     }
 
-    return normalizeDateParts(year, String(first), String(second));
+    return normalizeDateParts(year, String(second), String(first));
   }
 
   return undefined;
@@ -121,9 +170,12 @@ function normalizeDateParts(year: string, month: string, day: string): string | 
 }
 
 function extractAmount(text: string, lines: string[]): number | undefined {
-  const totalLinePattern = /\b(total|amount due|balance due|grand total|total due)\b[:.]?\s*([$€£]?\s*\d[\d,]*[.,]\d{2})/i;
   for (const line of lines) {
-    const totalMatch = line.match(totalLinePattern);
+    if (/\b(subtotal|subtotale|iva|tax|imponibile)\b/i.test(line)) {
+      continue;
+    }
+
+    const totalMatch = line.match(TOTAL_LINE_PATTERN);
     if (totalMatch) {
       const parsed = parseCurrencyAmount(totalMatch[2]);
       if (parsed !== undefined) {
@@ -132,24 +184,33 @@ function extractAmount(text: string, lines: string[]): number | undefined {
     }
   }
 
-  const currencyMatches = [...text.matchAll(/[$€£]\s*(\d[\d,]*[.,]\d{2})/g)].map(match =>
-    parseCurrencyAmount(match[1])
-  );
-  const numericMatches = currencyMatches.filter((value): value is number => value !== undefined);
+  const currencyMatches = [...text.matchAll(/[$€£]\s*(\d[\d.]*[.,]\d{2})/g)]
+    .map(match => parseCurrencyAmount(match[1]))
+    .filter((value): value is number => value !== undefined);
 
-  if (numericMatches.length > 0) {
-    return Math.max(...numericMatches);
+  if (currencyMatches.length > 0) {
+    return Math.max(...currencyMatches);
   }
 
-  const plainAmountMatches = [...text.matchAll(/\b(\d[\d,]*[.,]\d{2})\b/g)]
+  const plainAmountMatches = [...text.matchAll(/\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d+[.,]\d{2})\b/g)]
     .map(match => parseCurrencyAmount(match[1]))
     .filter((value): value is number => value !== undefined);
 
   return plainAmountMatches.length > 0 ? Math.max(...plainAmountMatches) : undefined;
 }
 
-function parseCurrencyAmount(rawValue: string): number | undefined {
-  const normalized = rawValue.replace(/,/g, '.').replace(/\.(?=.*\.)/g, '');
+export function parseCurrencyAmount(rawValue: string): number | undefined {
+  const trimmed = rawValue.replace(/[$€£\s]/g, '');
+  const lastComma = trimmed.lastIndexOf(',');
+  const lastDot = trimmed.lastIndexOf('.');
+  let normalized = trimmed;
+
+  if (lastComma > lastDot) {
+    normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    normalized = trimmed.replace(/,/g, '');
+  }
+
   const amount = Number.parseFloat(normalized);
 
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -169,7 +230,7 @@ function extractDescription(
       continue;
     }
 
-    if (line.length >= 3) {
+    if (/[a-zA-Zàèéìòù]{3,}/.test(line) && line.length >= 3) {
       return line.slice(0, 120);
     }
   }
@@ -180,11 +241,15 @@ function extractDescription(
 function isLikelyMetadataLine(line: string, date?: string, amount?: number): boolean {
   const lowerLine = line.toLowerCase();
 
-  if (/\b(total|subtotal|tax|change|cash|visa|mastercard|receipt|thank you)\b/.test(lowerLine)) {
+  if (
+    /\b(total|subtotal|tax|change|cash|visa|mastercard|receipt|thank you|scontrino|documento|commerciale|grazie|iva|imponibile|contanti|carta|resto|p\.?\s*iva|codice fiscale|c\.f\.|operatore|cassa)\b/.test(
+      lowerLine
+    )
+  ) {
     return true;
   }
 
-  if (/\b(20\d{2}|date)\b/.test(lowerLine)) {
+  if (/\b(20\d{2}|date|data)\b/.test(lowerLine) && /\d/.test(line)) {
     return true;
   }
 
@@ -216,8 +281,8 @@ function suggestCategory(text: string, expenseCategoryNames: string[]): string |
   }
 
   for (const categoryName of expenseCategoryNames) {
-    const keywords = CATEGORY_KEYWORDS[categoryName] ?? [];
-    if (keywords.some(keyword => lowerText.includes(keyword))) {
+    const keywords = CATEGORY_KEYWORDS[categoryName] ?? categoryName.toLowerCase().split(/\s+/).filter(word => word.length >= 4);
+    if (keywords.some(keyword => lowerText.includes(keyword.toLowerCase()))) {
       return categoryName;
     }
   }
@@ -225,36 +290,82 @@ function suggestCategory(text: string, expenseCategoryNames: string[]): string |
   return undefined;
 }
 
+function truncateOcrText(text: string): string {
+  const collapsed = text.replace(/\n{3,}/g, '\n\n').trim();
+  if (collapsed.length <= 400) {
+    return collapsed;
+  }
+
+  return `${collapsed.slice(0, 397).trimEnd()}...`;
+}
+
+async function preprocessReceiptImage(imageBuffer: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(imageBuffer)
+      .rotate()
+      .resize({ width: 1800, withoutEnlargement: false })
+      .grayscale()
+      .normalize()
+      .sharpen()
+      .png()
+      .toBuffer();
+  } catch {
+    return imageBuffer;
+  }
+}
+
 export class ReceiptScanService {
   constructor(private readonly categoryRepository: CategoryRepository) {}
 
   async scanReceipt(imageBuffer: Buffer): Promise<ReceiptScanResponse> {
-    const worker = await createWorker('eng');
+    const preparedImage = await preprocessReceiptImage(imageBuffer);
+    const { text, confidence } = await recognizeReceiptText(preparedImage);
+    const trimmedText = text.trim();
 
-    try {
-      const { data } = await worker.recognize(imageBuffer);
-      const trimmedText = data.text.trim();
-
-      if (trimmedText.length === 0) {
-        throw new Error('Could not read text from receipt image');
-      }
-
-      const expenseCategories = this.categoryRepository.findNamesByType('expense');
-      const parsed = parseReceiptText(trimmedText, expenseCategories, data.confidence);
-
-      if (!parsed.date && parsed.amount === undefined && !parsed.description) {
-        throw new Error('Could not extract transaction details from receipt');
-      }
-
-      return {
-        date: parsed.date,
-        amount: parsed.amount,
-        description: parsed.description,
-        suggestedCategory: parsed.suggestedCategory,
-        confidence: parsed.confidence,
-      };
-    } finally {
-      await worker.terminate();
+    if (trimmedText.length === 0) {
+      throw new Error('Could not read text from receipt image');
     }
+
+    const expenseCategories = this.categoryRepository.findNamesByType('expense');
+    const parsed = parseReceiptText(trimmedText, expenseCategories, confidence);
+
+    return {
+      date: parsed.date,
+      amount: parsed.amount,
+      description: parsed.description,
+      suggestedCategory: parsed.suggestedCategory,
+      ocrText: parsed.ocrText,
+      confidence: parsed.confidence,
+    };
+  }
+}
+
+async function recognizeReceiptText(
+  imageBuffer: Buffer
+): Promise<{ text: string; confidence?: number }> {
+  const languages = process.env.TESSERACT_LANGS ?? 'ita+eng';
+
+  try {
+    return await recognizeWithLanguages(imageBuffer, languages);
+  } catch (error) {
+    if (languages !== 'eng') {
+      return await recognizeWithLanguages(imageBuffer, 'eng');
+    }
+
+    throw error;
+  }
+}
+
+async function recognizeWithLanguages(
+  imageBuffer: Buffer,
+  languages: string
+): Promise<{ text: string; confidence?: number }> {
+  const worker = await createWorker(languages);
+
+  try {
+    const { data } = await worker.recognize(imageBuffer);
+    return { text: data.text, confidence: data.confidence };
+  } finally {
+    await worker.terminate();
   }
 }

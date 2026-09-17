@@ -1,11 +1,13 @@
 import { Transaction } from '../models/transaction.model';
+import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
 
-export type CreateTransactionInput = Omit<Transaction, 'id'>;
+export type CreateTransactionInput = Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount'>;
 
 export function validateTransactionInput(
   input: CreateTransactionInput,
-  categoryRepository: CategoryRepository
+  categoryRepository: CategoryRepository,
+  accountRepository: AccountRepository
 ): void {
   if (typeof input.date !== 'string' || input.date.trim() === '') {
     throw new Error('date is required');
@@ -30,5 +32,14 @@ export function validateTransactionInput(
   if (!categoryRepository.existsByNameAndType(input.category, input.type)) {
     const names = categoryRepository.findNamesByType(input.type);
     throw new Error(`category must be one of: ${names.join(', ')}`);
+  }
+
+  if (typeof input.account !== 'string' || input.account.trim() === '') {
+    throw new Error('account is required');
+  }
+
+  if (!accountRepository.existsByName(input.account.trim())) {
+    const names = accountRepository.findAllNames();
+    throw new Error(`account must be one of: ${names.join(', ')}`);
   }
 }

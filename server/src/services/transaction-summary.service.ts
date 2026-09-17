@@ -1,48 +1,25 @@
-import { Transaction } from '../models/transaction.model';
-import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
+import { TransactionSummaryResponse } from '../models/transaction-summary.model';
+import { AccountRepository } from '../repositories/account.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
+import { buildSummary } from './period-totals';
 
 export class TransactionSummaryService {
-  constructor(private readonly repository: TransactionRepository) {}
+  constructor(
+    private readonly repository: TransactionRepository,
+    private readonly accountRepository: AccountRepository
+  ) {}
 
   getSummary(criteria: TransactionFilterCriteria = {}): TransactionSummaryResponse {
     const transactions = this.repository.findFiltered(criteria);
+    const lifetimeTransactions = this.repository.findAll();
 
-    return {
-      categoryTotals: getCategoryTotals(transactions),
-      dailyTotals: getDailyTotals(transactions),
-    };
+    return buildSummary(transactions, criteria.startDate, criteria.endDate, {
+      lifetimeTransactions,
+      accounts: this.accountRepository.findAll().map(account => ({
+        name: account.name,
+        kind: account.kind,
+      })),
+    });
   }
-}
-
-function getCategoryTotals(transactions: Transaction[]): Record<string, number> {
-  return transactions.reduce((acc, curr) => {
-    if (curr.type === 'expense') {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function getDailyTotals(transactions: Transaction[]): DailyTotal[] {
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    return date.toISOString().split('T')[0];
-  }).reverse();
-
-  return last7Days.map(date => {
-    const dayTransactions = transactions.filter(t => t.date === date);
-
-    return {
-      date,
-      income: dayTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0),
-      expense: dayTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0),
-    };
-  });
 }

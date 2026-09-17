@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { DEFAULT_ACCOUNTS, DEFAULT_ACCOUNT, DEFAULT_CREDIT_CARD, DEFAULT_CREDIT_BILLING_DAY } from '../constants/accounts';
 import {
   DEFAULT_EXPENSE_CATEGORIES,
   DEFAULT_INCOME_CATEGORIES,
@@ -29,6 +30,13 @@ export function createDatabase(
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE
+    )
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,
@@ -39,7 +47,13 @@ export function createDatabase(
     )
   `);
 
-  seedCategoriesIfEmpty(db);
+  ensureAccountColumn(db);
+  ensureAccountKindColumns(db);
+  ensureSettlementColumns(db);
+  seedMissingDefaultCategories(db);
+  seedMissingDefaultAccounts(db);
+  seedCreditCardAccount(db);
+  retireLegacyBankPlaces(db);
 
   if (options.seed !== false) {
     seedIfEmpty(db);
@@ -48,15 +62,9 @@ export function createDatabase(
   return db;
 }
 
-function seedCategoriesIfEmpty(db: Database.Database): void {
-  const { count } = db.prepare('SELECT COUNT(*) AS count FROM categories').get() as { count: number };
-
-  if (count > 0) {
-    return;
-  }
-
+function seedMissingDefaultCategories(db: Database.Database): void {
   const insert = db.prepare(`
-    INSERT INTO categories (name, type)
+    INSERT OR IGNORE INTO categories (name, type)
     VALUES (@name, @type)
   `);
 
@@ -65,13 +73,13 @@ function seedCategoriesIfEmpty(db: Database.Database): void {
     ...DEFAULT_INCOME_CATEGORIES.map(name => ({ name, type: 'income' as const })),
   ];
 
-  const insertMany = db.transaction((categories: typeof defaults) => {
+  const insertMissing = db.transaction((categories: typeof defaults) => {
     for (const category of categories) {
       insert.run(category);
     }
   });
 
-  insertMany(defaults);
+  insertMissing(defaults);
 }
 
 function seedIfEmpty(db: Database.Database): void {
@@ -82,15 +90,133 @@ function seedIfEmpty(db: Database.Database): void {
   }
 
   const insert = db.prepare(`
-    INSERT INTO transactions (date, category, type, amount, description)
-    VALUES (@date, @category, @type, @amount, @description)
+    INSERT INTO transactions (date, category, type, amount, description, account, settlement_date, settlement_account)
+    VALUES (@date, @category, @type, @amount, @description, @account, @settlementDate, @settlementAccount)
   `);
 
   const insertMany = db.transaction((transactions: typeof MOCK_TRANSACTIONS) => {
     for (const transaction of transactions) {
-      insert.run(transaction);
+      insert.run({
+        ...transaction,
+        settlementDate: transaction.settlementDate ?? transaction.date,
+        settlementAccount: transaction.settlementAccount ?? transaction.account,
+      });
     }
   });
 
   insertMany(MOCK_TRANSACTIONS);
+}
+
+function ensureAccountColumn(db: Database.Database): void {
+  const columns = db.prepare(`PRAGMA table_info(transactions)`).all() as Array<{ name: string }>;
+  if (columns.some(column => column.name === 'account')) {
+    return;
+  }
+
+  db.exec(`ALTER TABLE transactions ADD COLUMN account TEXT NOT NULL DEFAULT '${DEFAULT_ACCOUNT}'`);
+}
+
+function seedMissingDefaultAccounts(db: Database.Database): void {
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO accounts (name)
+    VALUES (@name)
+  `);
+
+  const insertMissing = db.transaction((names: readonly string[]) => {
+    for (const name of names) {
+      insert.run({ name });
+    }
+  });
+
+  insertMissing(DEFAULT_ACCOUNTS);
+}
+
+function ensureAccountKindColumns(db: Database.Database): void {
+  const columns = tableColumns(db, 'accounts');
+
+  if (!columns.has('kind')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'wallet'`);
+  }
+
+  if (!columns.has('billing_day')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN billing_day INTEGER`);
+  }
+
+  if (!columns.has('settlement_account')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN settlement_account TEXT`);
+  }
+}
+
+function ensureSettlementColumns(db: Database.Database): void {
+  const columns = tableColumns(db, 'transactions');
+
+  if (!columns.has('settlement_date')) {
+    db.exec(`ALTER TABLE transactions ADD COLUMN settlement_date TEXT`);
+    db.exec(`UPDATE transactions SET settlement_date = date WHERE settlement_date IS NULL`);
+  }
+
+  if (!columns.has('settlement_account')) {
+    db.exec(`ALTER TABLE transactions ADD COLUMN settlement_account TEXT`);
+    db.exec(`UPDATE transactions SET settlement_account = account WHERE settlement_account IS NULL`);
+  }
+}
+
+function tableColumns(db: Database.Database, table: string): Set<string> {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  return new Set(columns.map(column => column.name));
+}
+
+function seedCreditCardAccount(db: Database.Database): void {
+  db.prepare(`
+    INSERT OR IGNORE INTO accounts (name, kind, billing_day, settlement_account)
+    VALUES (@name, 'credit', @billingDay, @settlementAccount)
+  `).run({
+    name: DEFAULT_CREDIT_CARD,
+    billingDay: DEFAULT_CREDIT_BILLING_DAY,
+    settlementAccount: DEFAULT_ACCOUNT,
+  });
+
+  db.prepare(`
+    UPDATE accounts
+    SET kind = 'credit',
+        billing_day = COALESCE(billing_day, @billingDay),
+        settlement_account = COALESCE(settlement_account, @settlementAccount)
+    WHERE name = @name AND kind = 'wallet'
+  `).run({
+    name: DEFAULT_CREDIT_CARD,
+    billingDay: DEFAULT_CREDIT_BILLING_DAY,
+    settlementAccount: DEFAULT_ACCOUNT,
+  });
+}
+
+function retireLegacyBankPlaces(db: Database.Database): void {
+  const replacements: Array<{ from: string; to: string }> = [
+    { from: 'Bank 1', to: DEFAULT_ACCOUNT },
+    { from: 'Bank 2', to: 'ING Orange Account' },
+    { from: 'Bank 3', to: 'Post Bank' },
+  ];
+
+  const retire = db.transaction(() => {
+    for (const { from, to } of replacements) {
+      const exists = db.prepare(`SELECT 1 FROM accounts WHERE name = @from`).get({ from });
+      if (!exists) {
+        continue;
+      }
+
+      db.prepare(`UPDATE transactions SET account = @to WHERE account = @from`).run({ from, to });
+      db.prepare(`
+        UPDATE transactions
+        SET settlement_account = @to
+        WHERE settlement_account = @from
+      `).run({ from, to });
+      db.prepare(`
+        UPDATE accounts
+        SET settlement_account = @to
+        WHERE settlement_account = @from
+      `).run({ from, to });
+      db.prepare(`DELETE FROM accounts WHERE name = @from`).run({ from });
+    }
+  });
+
+  retire();
 }

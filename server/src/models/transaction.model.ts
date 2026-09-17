@@ -5,4 +5,7 @@ export interface Transaction {
   type: 'expense' | 'income';
   amount: number;
   description: string;
+  account: string;
+  settlementDate: string;
+  settlementAccount: string;
 }

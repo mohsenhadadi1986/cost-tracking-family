@@ -6,6 +6,7 @@ import {
   Input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { GlyphComponent } from './glyph.component';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 let nextCategoryMultiSelectId = 0;
@@ -13,7 +14,7 @@ let nextCategoryMultiSelectId = 0;
 @Component({
   selector: 'app-category-multi-select',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, GlyphComponent],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -73,6 +74,7 @@ let nextCategoryMultiSelectId = 0;
               aria-hidden="true"
               [class.category-multi-select__checkbox--checked]="isSelected(category)">
             </span>
+            <app-glyph set="category" [name]="category" size="sm"></app-glyph>
             <span>{{ category }}</span>
           </button>
         </div>
@@ -203,6 +205,7 @@ let nextCategoryMultiSelectId = 0;
     .category-multi-select__option {
       display: flex;
       align-items: center;
+      gap: var(--space-sm);
       width: 100%;
       padding: var(--space-sm);
       border: 0;

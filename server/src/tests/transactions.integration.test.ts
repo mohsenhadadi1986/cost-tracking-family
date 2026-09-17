@@ -5,7 +5,10 @@ import os from 'os';
 import path from 'path';
 import request from 'supertest';
 import { createApp } from '../app';
+import { DEFAULT_ACCOUNT, DEFAULT_CREDIT_CARD } from '../constants/accounts';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
+import { buildSummary } from '../services/period-totals';
+import { creditCardSettlementDate } from '../utils/credit-card';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import type Database from 'better-sqlite3';
 
@@ -52,32 +55,12 @@ function filterMockTransactions(criteria: TransactionFilterCriteria) {
   });
 }
 
-function expectedCategoryTotals(transactions = MOCK_TRANSACTIONS): Record<string, number> {
-  return transactions.reduce((acc, curr) => {
-    if (curr.type === 'expense') {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function expectedDailyTotals(
-  transactions = MOCK_TRANSACTIONS
-): Array<{ date: string; income: number; expense: number }> {
-  const last7Days = Array.from({ length: 7 }, (_, i) => daysAgo(6 - i));
-
-  return last7Days.map(date => {
-    const dayTransactions = transactions.filter(t => t.date === date);
-    return {
-      date,
-      income: dayTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0),
-      expense: dayTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0),
-    };
-  });
+function expectedSummary(
+  transactions = MOCK_TRANSACTIONS,
+  startDate?: string,
+  endDate?: string
+) {
+  return buildSummary(transactions, startDate, endDate);
 }
 
 afterEach(() => {
@@ -111,6 +94,7 @@ describe('Transaction API integration', () => {
         type: 'expense',
         amount: 12.5,
         description: 'Integration test transaction',
+        account: DEFAULT_ACCOUNT,
       };
 
       const response = await request(app).post('/api/transactions').send(payload);
@@ -119,6 +103,45 @@ describe('Transaction API integration', () => {
       assert.equal(response.body.description, payload.description);
       assert.equal(response.body.amount, payload.amount);
       assert.equal(typeof response.body.id, 'number');
+    });
+
+    it('settles credit-card expenses on the 10th of next month without a second bank expense', async () => {
+      const { app } = createTestApp(false);
+      const purchaseDate = daysAgo(0);
+      const dueDate = creditCardSettlementDate(purchaseDate);
+
+      const created = await request(app).post('/api/transactions').send({
+        date: purchaseDate,
+        category: 'Food',
+        type: 'expense',
+        amount: 40,
+        description: 'Card groceries',
+        account: DEFAULT_CREDIT_CARD,
+      });
+
+      assert.equal(created.status, 201);
+      assert.equal(created.body.account, DEFAULT_CREDIT_CARD);
+      assert.equal(created.body.settlementDate, dueDate);
+      assert.equal(created.body.settlementAccount, DEFAULT_ACCOUNT);
+
+      const summary = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate: purchaseDate, endDate: purchaseDate });
+
+      assert.equal(summary.status, 200);
+      assert.equal(summary.body.totalExpense, 40);
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === DEFAULT_ACCOUNT)?.amount,
+        0
+      );
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === DEFAULT_CREDIT_CARD)?.amount,
+        -40
+      );
+      assert.equal(summary.body.creditCardDues.length, 1);
+      assert.equal(summary.body.creditCardDues[0].settlementDate, dueDate);
+      assert.equal(summary.body.creditCardDues[0].amount, 40);
+      assert.equal(summary.body.currentBalance, 0);
     });
 
     it('returns 400 for invalid type', async () => {
@@ -170,6 +193,23 @@ describe('Transaction API integration', () => {
 
       assert.equal(response.status, 400);
       assert.match(response.body.error, /category must be one of:/);
+    });
+
+    it('returns 400 for missing place', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app)
+        .post('/api/transactions')
+        .send({
+          date: '2026-05-30',
+          category: 'Food',
+          type: 'expense',
+          amount: 10,
+          description: 'Missing place',
+        });
+
+      assert.equal(response.status, 400);
+      assert.match(response.body.error, /account is required/);
     });
   });
 
@@ -223,12 +263,12 @@ describe('Transaction API integration', () => {
 
     it('filters by comma-separated categories', async () => {
       const { app } = createTestApp(true);
-      const categories = ['Food', 'Transport'];
+      const categories = ['Food', 'Fuel'];
       const expected = filterMockTransactions({ categories });
 
       const response = await request(app)
         .get('/api/transactions')
-        .query({ categories: 'Food,Transport' });
+        .query({ categories: 'Food,Fuel' });
 
       assert.equal(response.status, 200);
       assert.equal(response.body.length, expected.length);
@@ -241,12 +281,12 @@ describe('Transaction API integration', () => {
 
     it('filters by repeated categories and type', async () => {
       const { app } = createTestApp(true);
-      const categories = ['Food', 'Transport'];
+      const categories = ['Food', 'Fuel'];
       const expected = filterMockTransactions({ categories, type: 'expense' });
 
       const response = await request(app)
         .get('/api/transactions')
-        .query({ categories: ['Food', 'Transport'], type: 'expense' });
+        .query({ categories: ['Food', 'Fuel'], type: 'expense' });
 
       assert.equal(response.status, 200);
       assert.equal(response.body.length, expected.length);
@@ -305,27 +345,34 @@ describe('Transaction API integration', () => {
   });
 
   describe('GET /api/transactions/summary', () => {
-    it('returns category and daily totals for seeded data', async () => {
+    it('returns category, income, and period totals for seeded data', async () => {
       const { app } = createTestApp(true);
+      const expected = expectedSummary();
 
       const response = await request(app).get('/api/transactions/summary');
 
       assert.equal(response.status, 200);
-      assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals());
-      assert.deepEqual(response.body.dailyTotals, expectedDailyTotals());
+      assert.deepEqual(response.body.categoryTotals, expected.categoryTotals);
+      assert.deepEqual(response.body.incomeByCategory, expected.incomeByCategory);
+      assert.equal(response.body.totalIncome, expected.totalIncome);
+      assert.equal(response.body.totalExpense, expected.totalExpense);
+      assert.equal(response.body.netBalance, expected.netBalance);
+      assert.deepEqual(response.body.dailyTotals, expected.dailyTotals);
     });
 
     it('returns aggregates computed from expense transactions only when type=expense', async () => {
       const { app } = createTestApp(true);
       const expenseTransactions = MOCK_TRANSACTIONS.filter(t => t.type === 'expense');
+      const expected = expectedSummary(expenseTransactions);
 
       const response = await request(app)
         .get('/api/transactions/summary')
         .query({ type: 'expense' });
 
       assert.equal(response.status, 200);
-      assert.deepEqual(response.body.categoryTotals, expectedCategoryTotals(expenseTransactions));
-      assert.deepEqual(response.body.dailyTotals, expectedDailyTotals(expenseTransactions));
+      assert.deepEqual(response.body.categoryTotals, expected.categoryTotals);
+      assert.deepEqual(response.body.incomeByCategory, expected.incomeByCategory);
+      assert.deepEqual(response.body.dailyTotals, expected.dailyTotals);
     });
 
     it('returns filtered category and daily totals that differ from unfiltered baseline', async () => {
@@ -334,6 +381,7 @@ describe('Transaction API integration', () => {
       const endDate = daysAgo(1);
       const criteria = { startDate, endDate, categories: ['Food'], type: 'expense' as const };
       const filteredTransactions = filterMockTransactions(criteria);
+      const expected = expectedSummary(filteredTransactions, startDate, endDate);
 
       const baseline = await request(app).get('/api/transactions/summary');
       const filtered = await request(app)
@@ -346,10 +394,27 @@ describe('Transaction API integration', () => {
         });
 
       assert.equal(filtered.status, 200);
-      assert.deepEqual(filtered.body.categoryTotals, expectedCategoryTotals(filteredTransactions));
-      assert.deepEqual(filtered.body.dailyTotals, expectedDailyTotals(filteredTransactions));
+      assert.deepEqual(filtered.body.categoryTotals, expected.categoryTotals);
+      assert.deepEqual(filtered.body.dailyTotals, expected.dailyTotals);
       assert.notDeepEqual(filtered.body.categoryTotals, baseline.body.categoryTotals);
       assert.notDeepEqual(filtered.body.dailyTotals, baseline.body.dailyTotals);
+    });
+
+    it('uses monthly buckets when the requested range is longer than 62 days', async () => {
+      const { app } = createTestApp(true);
+      const startDate = daysAgo(80);
+      const endDate = daysAgo(0);
+
+      const response = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate, endDate });
+
+      assert.equal(response.status, 200);
+      assert.ok(response.body.dailyTotals.length >= 2);
+      assert.ok(
+        response.body.dailyTotals.every((bucket: { date: string }) => bucket.date.endsWith('-01')),
+        'long ranges should use first-of-month bucket dates'
+      );
     });
 
     it('returns 400 for invalid filter parameters', async () => {

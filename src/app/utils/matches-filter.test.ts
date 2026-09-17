@@ -11,6 +11,9 @@ const sampleTransaction: Transaction = {
   type: 'expense',
   amount: 42,
   description: 'Groceries',
+  account: 'Satispay',
+  settlementDate: '2024-06-15',
+  settlementAccount: 'Satispay',
 };
 
 const emptyFilter: TransactionFilter = {

@@ -34,6 +34,7 @@ export type ButtonType = 'button' | 'submit' | 'reset';
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: var(--space-xs);
       margin: 0;
       border-radius: 6px;
       font-family: inherit;

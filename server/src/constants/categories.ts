@@ -1,7 +1,20 @@
 export const DEFAULT_EXPENSE_CATEGORIES = [
   'Food',
-  'Transport',
+  'Baby school',
+  'Car maintenance',
+  'Public transport',
+  'Fuel',
+  'Tolls',
+  'Insurance home',
+  'Insurance car',
+  'WiFi',
+  'Telephone bill',
+  'Gas',
+  'Electricity',
   'Utilities',
+  'Condominio charge',
+  'Mortgage',
+  'Unexpected cost',
   'Entertainment',
 ] as const;
 

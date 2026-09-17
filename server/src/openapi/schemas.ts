@@ -30,6 +30,10 @@ const createTransactionRequestProperties = {
   description: {
     type: 'string',
   },
+  account: {
+    type: 'string',
+    description: 'Place used for the purchase or deposit (bank, Satispay, PayPal, or credit card)',
+  },
 };
 
 export function getOpenApiSchemas() {
@@ -46,15 +50,24 @@ export function getOpenApiSchemas() {
     },
     Transaction: {
       type: 'object',
-      required: ['id', 'date', 'category', 'type', 'amount', 'description'],
+      required: ['id', 'date', 'category', 'type', 'amount', 'description', 'account', 'settlementDate', 'settlementAccount'],
       properties: {
         id: { type: 'integer' },
         ...createTransactionRequestProperties,
+        settlementDate: {
+          type: 'string',
+          format: 'date',
+          description: 'Date the bank is charged. Credit-card expenses settle on the next month billing day.',
+        },
+        settlementAccount: {
+          type: 'string',
+          description: 'Place the money leaves. For credit-card expenses this is the pay-from bank.',
+        },
       },
     },
     CreateTransactionRequest: {
       type: 'object',
-      required: ['date', 'category', 'type', 'amount', 'description'],
+      required: ['date', 'category', 'type', 'amount', 'description', 'account'],
       properties: createTransactionRequestProperties,
     },
     DailyTotal: {
@@ -76,17 +89,93 @@ export function getOpenApiSchemas() {
         },
       },
     },
+    AccountBreakdown: {
+      type: 'object',
+      required: ['account', 'amount'],
+      properties: {
+        account: { type: 'string' },
+        amount: { type: 'number' },
+        lastDate: {
+          type: 'string',
+          format: 'date',
+          description: 'Most recent transaction date for this place',
+        },
+        lastCategory: {
+          type: 'string',
+          description: 'Category of the most recent movement',
+        },
+      },
+    },
+    CreditCardDue: {
+      type: 'object',
+      required: ['account', 'settlementAccount', 'settlementDate', 'amount'],
+      properties: {
+        account: { type: 'string', description: 'Credit card place' },
+        settlementAccount: { type: 'string', description: 'Bank that will be charged' },
+        settlementDate: {
+          type: 'string',
+          format: 'date',
+          description: 'Date the bank withdrawal happens',
+        },
+        amount: { type: 'number' },
+      },
+    },
     TransactionSummaryResponse: {
       type: 'object',
-      required: ['categoryTotals', 'dailyTotals'],
+      required: [
+        'categoryTotals',
+        'incomeByCategory',
+        'dailyTotals',
+        'totalIncome',
+        'totalExpense',
+        'netBalance',
+        'currentBalance',
+        'accountBalances',
+        'incomeByAccount',
+        'expenseByAccount',
+        'creditCardDues',
+      ],
       properties: {
         categoryTotals: {
           type: 'object',
           additionalProperties: { type: 'number' },
+          description: 'Expense totals grouped by category',
+        },
+        incomeByCategory: {
+          type: 'object',
+          additionalProperties: { type: 'number' },
+          description: 'Income totals grouped by source category',
         },
         dailyTotals: {
           type: 'array',
           items: { $ref: '#/components/schemas/DailyTotal' },
+          description: 'Zero-filled day or month buckets for the requested range',
+        },
+        totalIncome: { type: 'number' },
+        totalExpense: { type: 'number' },
+        netBalance: {
+          type: 'number',
+          description: 'Income minus expenses in the selected range',
+        },
+        currentBalance: {
+          type: 'number',
+          description: 'Cash on hand today across banks and wallets. Credit-card spend leaves the bank on settlement day.',
+        },
+        accountBalances: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/AccountBreakdown' },
+        },
+        incomeByAccount: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/AccountBreakdown' },
+        },
+        expenseByAccount: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/AccountBreakdown' },
+        },
+        creditCardDues: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/CreditCardDue' },
         },
       },
     },
@@ -119,6 +208,70 @@ export function getOpenApiSchemas() {
       required: ['name'],
       properties: {
         name: { type: 'string' },
+      },
+    },
+    Account: {
+      type: 'object',
+      required: ['id', 'name', 'kind'],
+      properties: {
+        id: { type: 'integer' },
+        name: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['wallet', 'credit'],
+        },
+        billingDay: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 28,
+          nullable: true,
+        },
+        settlementAccount: {
+          type: 'string',
+          nullable: true,
+          description: 'Bank or wallet charged on the billing day for a credit card',
+        },
+      },
+    },
+    CreateAccountRequest: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['wallet', 'credit'],
+        },
+        billingDay: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 28,
+          nullable: true,
+        },
+        settlementAccount: {
+          type: 'string',
+          nullable: true,
+        },
+      },
+    },
+    UpdateAccountRequest: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['wallet', 'credit'],
+        },
+        billingDay: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 28,
+          nullable: true,
+        },
+        settlementAccount: {
+          type: 'string',
+          nullable: true,
+        },
       },
     },
     ReceiptScanConfidence: {
@@ -167,6 +320,10 @@ export function getOpenApiSchemas() {
         suggestedCategory: {
           type: 'string',
           description: 'Best-guess category based on receipt text',
+        },
+        ocrText: {
+          type: 'string',
+          description: 'Truncated OCR text to help the user correct missed fields',
         },
         confidence: {
           $ref: '#/components/schemas/ReceiptScanConfidence',

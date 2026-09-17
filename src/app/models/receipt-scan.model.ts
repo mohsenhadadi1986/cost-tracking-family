@@ -11,5 +11,6 @@ export interface ReceiptScanResponse {
   amount?: number;
   description?: string;
   suggestedCategory?: string;
+  ocrText?: string;
   confidence?: ReceiptScanConfidence;
 }
