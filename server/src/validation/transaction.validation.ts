@@ -4,6 +4,36 @@ import { CategoryRepository } from '../repositories/category.repository';
 
 export type CreateTransactionInput = Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount'>;
 
+export class TransactionNotFoundError extends Error {
+  constructor() {
+    super('transaction not found');
+    this.name = 'TransactionNotFoundError';
+  }
+}
+
+export function parseTransactionIdParam(value: string): number {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('invalid transaction id');
+  }
+
+  return id;
+}
+
+export function parseTransactionWriteInput(body: unknown): CreateTransactionInput {
+  const record = isRecord(body) ? body : {};
+  const amountValue = typeof record.amount === 'number' ? record.amount : Number(record.amount);
+
+  return {
+    date: typeof record.date === 'string' ? record.date : '',
+    category: typeof record.category === 'string' ? record.category.trim() : '',
+    type: record.type as CreateTransactionInput['type'],
+    amount: amountValue,
+    description: typeof record.description === 'string' ? record.description : '',
+    account: typeof record.account === 'string' ? record.account : '',
+  };
+}
+
 export function validateTransactionInput(
   input: CreateTransactionInput,
   categoryRepository: CategoryRepository,
@@ -42,4 +72,8 @@ export function validateTransactionInput(
     const names = accountRepository.findAllNames();
     throw new Error(`account must be one of: ${names.join(', ')}`);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

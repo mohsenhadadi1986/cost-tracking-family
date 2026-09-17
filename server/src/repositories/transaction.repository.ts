@@ -52,6 +52,62 @@ export class TransactionRepository {
     return mapTransaction(row);
   }
 
+  findById(id: number): Transaction | undefined {
+    const row = this.db
+      .prepare(`
+        SELECT id, date, category, type, amount, description, account, settlement_date, settlement_account
+        FROM transactions
+        WHERE id = @id
+      `)
+      .get({ id }) as TransactionRow | undefined;
+
+    return row ? mapTransaction(row) : undefined;
+  }
+
+  update(id: number, input: CreateTransactionInput): Transaction | undefined {
+    if (!this.findById(id)) {
+      return undefined;
+    }
+
+    const normalized = {
+      ...input,
+      account: typeof input.account === 'string' ? input.account.trim() : input.account,
+    };
+    validateTransactionInput(normalized, this.categoryRepository, this.accountRepository);
+    const settlement = resolveSettlement(normalized, this.accountRepository);
+
+    const row = this.db
+      .prepare(`
+        UPDATE transactions
+        SET date = @date,
+            category = @category,
+            type = @type,
+            amount = @amount,
+            description = @description,
+            account = @account,
+            settlement_date = @settlementDate,
+            settlement_account = @settlementAccount
+        WHERE id = @id
+        RETURNING id, date, category, type, amount, description, account, settlement_date, settlement_account
+      `)
+      .get({
+        id,
+        ...normalized,
+        settlementDate: settlement.settlementDate,
+        settlementAccount: settlement.settlementAccount,
+      }) as TransactionRow | undefined;
+
+    return row ? mapTransaction(row) : undefined;
+  }
+
+  delete(id: number): boolean {
+    const result = this.db
+      .prepare(`DELETE FROM transactions WHERE id = @id`)
+      .run({ id });
+
+    return result.changes > 0;
+  }
+
   findAll(): Transaction[] {
     return this.findFiltered({});
   }

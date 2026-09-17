@@ -126,6 +126,73 @@ export class TransactionService {
     );
   }
 
+  updateTransaction(
+    id: number,
+    transaction: Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount'>
+  ): Observable<Transaction> {
+    this.submitting.set(true);
+    this.submitError.set(null);
+
+    const source$ =
+      this.isMockMode()
+        ? (() => {
+            const updated: Transaction = {
+              ...transaction,
+              ...resolveTransactionSettlement(transaction, this.accountService.getAccounts()()),
+              id,
+            };
+            this.transactions.update(prev =>
+              prev.map(row => (row.id === id ? updated : row))
+            );
+            this.applySummaryFromTransactions();
+            return of(updated);
+          })()
+        : this.http.patch<Transaction>(`${this.transactionsUrl}/${id}`, transaction).pipe(
+            tap(updated => {
+              this.transactions.update(prev =>
+                prev.map(row => (row.id === updated.id ? updated : row))
+              );
+              this.refreshSummary().subscribe();
+            })
+          );
+
+    return source$.pipe(
+      catchError(error => {
+        this.submitError.set(toUserFriendlyMessage(error));
+        return throwError(() => error);
+      }),
+      finalize(() => this.submitting.set(false))
+    );
+  }
+
+  deleteTransaction(id: number): Observable<void> {
+    this.submitting.set(true);
+    this.submitError.set(null);
+
+    const source$ =
+      this.isMockMode()
+        ? (() => {
+            this.transactions.update(prev => prev.filter(row => row.id !== id));
+            this.applySummaryFromTransactions();
+            return of(undefined);
+          })()
+        : this.http.delete(`${this.transactionsUrl}/${id}`).pipe(
+            map(() => undefined),
+            tap(() => {
+              this.transactions.update(prev => prev.filter(row => row.id !== id));
+              this.refreshSummary().subscribe();
+            })
+          );
+
+    return source$.pipe(
+      catchError(error => {
+        this.submitError.set(toUserFriendlyMessage(error));
+        return throwError(() => error);
+      }),
+      finalize(() => this.submitting.set(false))
+    );
+  }
+
   getTransactions() {
     return this.transactions;
   }
@@ -202,6 +269,10 @@ export class TransactionService {
 
   getSubmitError() {
     return this.submitError.asReadonly();
+  }
+
+  clearSubmitError() {
+    this.submitError.set(null);
   }
 
   private isMockMode(): boolean {
@@ -321,8 +392,13 @@ function toUserFriendlyMessage(error: unknown): string {
     }
 
     const body = error.error;
-    if (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') {
-      return body.message;
+    if (body && typeof body === 'object') {
+      if ('error' in body && typeof body.error === 'string') {
+        return body.error;
+      }
+      if ('message' in body && typeof body.message === 'string') {
+        return body.message;
+      }
     }
 
     if (typeof body === 'string' && body.length > 0) {

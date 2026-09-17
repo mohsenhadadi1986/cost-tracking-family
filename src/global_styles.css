@@ -1016,6 +1016,14 @@ tbody tr:last-child td {
     color: var(--color-muted);
   }
 
+  app-table .table-wrapper td[data-label='Actions'] {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    flex-direction: row;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
   .table-wrapper td[data-label='Name'],
   .table-wrapper td[data-label='Type'],
   .table-wrapper td[data-label='Actions'] {

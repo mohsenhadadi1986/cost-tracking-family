@@ -3,6 +3,11 @@ import type { CategoryRepository } from '../repositories/category.repository';
 import type { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { parseTransactionFilterQuery } from '../validation/transaction-filter.validation';
+import {
+  parseTransactionIdParam,
+  parseTransactionWriteInput,
+  TransactionNotFoundError,
+} from '../validation/transaction.validation';
 
 export function createTransactionsRouter(
   repository: TransactionRepository,
@@ -134,16 +139,7 @@ export function createTransactionsRouter(
    */
   router.post('/', (req, res) => {
     try {
-      const { date, category, type, amount, description, account } = req.body;
-      const input = {
-        date,
-        category,
-        type,
-        amount,
-        description,
-        account,
-      };
-      const created = repository.create(input);
+      const created = repository.create(parseTransactionWriteInput(req.body));
       res.status(201).json(created);
     } catch (error) {
       res.status(400).json({
@@ -230,6 +226,97 @@ export function createTransactionsRouter(
     } catch (error) {
       res.status(400).json({
         error: error instanceof Error ? error.message : 'Invalid filter parameters',
+      });
+    }
+  });
+
+  /**
+   * @openapi
+   * /api/transactions/{id}:
+   *   patch:
+   *     tags:
+   *       - Transactions
+   *     summary: Update a transaction
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/CreateTransactionRequest'
+   *     responses:
+   *       200:
+   *         description: Transaction updated
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Transaction'
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: Transaction not found
+   */
+  router.patch('/:id', (req, res) => {
+    try {
+      const id = parseTransactionIdParam(req.params.id);
+      const updated = repository.update(id, parseTransactionWriteInput(req.body));
+      if (!updated) {
+        throw new TransactionNotFoundError();
+      }
+
+      res.status(200).json(updated);
+    } catch (error) {
+      if (error instanceof TransactionNotFoundError) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid transaction',
+      });
+    }
+  });
+
+  /**
+   * @openapi
+   * /api/transactions/{id}:
+   *   delete:
+   *     tags:
+   *       - Transactions
+   *     summary: Delete a transaction
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       204:
+   *         description: Transaction deleted
+   *       404:
+   *         description: Transaction not found
+   */
+  router.delete('/:id', (req, res) => {
+    try {
+      const id = parseTransactionIdParam(req.params.id);
+      if (!repository.delete(id)) {
+        throw new TransactionNotFoundError();
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof TransactionNotFoundError) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+
+      res.status(400).json({
+        error: error instanceof Error ? error.message : 'Invalid transaction',
       });
     }
   });

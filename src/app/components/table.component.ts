@@ -1,11 +1,18 @@
 import { Component, computed, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FilterBannerComponent } from './filter-banner.component';
 import { ButtonComponent } from './ui/button.component';
+import { CategorySelectComponent } from './ui/category-select.component';
+import { DateFieldComponent } from './ui/date-field.component';
 import { GlyphComponent } from './ui/glyph.component';
+import { TransactionTypeSelectComponent, TransactionEntryType } from './ui/transaction-type-select.component';
+import { Account } from '../models/account.model';
+import { AccountService } from '../services/account.service';
+import { CategoryService } from '../services/category.service';
 import { TransactionService } from '../services/transaction.service';
 import { Transaction } from '../models/transaction.model';
+import { creditCardSettlementDate } from '../utils/credit-card';
 import {
   TABLE_PAGE_SIZES,
   TableSortKey,
@@ -16,13 +23,105 @@ import {
 @Component({
   selector: 'app-table',
   standalone: true,
-  imports: [CommonModule, FormsModule, FilterBannerComponent, ButtonComponent, GlyphComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FilterBannerComponent,
+    ButtonComponent,
+    CategorySelectComponent,
+    DateFieldComponent,
+    GlyphComponent,
+    TransactionTypeSelectComponent
+  ],
+  providers: [DatePipe],
   template: `
     <h2 class="page-title">Transactions</h2>
     <app-filter-banner title="Table reflects active filters" />
     <div *ngIf="loadError()" class="card status-banner status-error">
       {{ loadError() }}
     </div>
+    <div *ngIf="submitError()" class="card status-banner status-error">
+      {{ submitError() }}
+    </div>
+
+    <form *ngIf="editing()" class="card form-card table-edit-card" (ngSubmit)="saveEdit()">
+      <h3 class="table-edit-card__title">Edit transaction</h3>
+      <div class="form-group">
+        <app-date-field
+          label="Date"
+          name="editDate"
+          [(ngModel)]="editForm.date"
+          [required]="true"
+          [disabled]="submitting()">
+        </app-date-field>
+      </div>
+      <div class="form-group">
+        <app-transaction-type-select
+          [ngModel]="editForm.type"
+          (ngModelChange)="onEditTypeChange($event)"
+          name="editType"
+          required
+          [disabled]="submitting()">
+        </app-transaction-type-select>
+      </div>
+      <div class="form-group">
+        <app-category-select
+          label="Place"
+          placeholder="Where the money is"
+          [options]="accountOptions()"
+          [(ngModel)]="editForm.account"
+          name="editAccount"
+          required
+          iconSet="place"
+          [disabled]="submitting()">
+        </app-category-select>
+        <p *ngIf="settlementHint()" class="form-hint">{{ settlementHint() }}</p>
+      </div>
+      <div class="form-group">
+        <app-category-select
+          label="Category"
+          [options]="categoryOptions()"
+          [(ngModel)]="editForm.category"
+          name="editCategory"
+          required
+          [disabled]="submitting()">
+        </app-category-select>
+      </div>
+      <div class="form-group">
+        <label for="edit-amount">Amount</label>
+        <input
+          id="edit-amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          [(ngModel)]="editForm.amount"
+          name="editAmount"
+          required
+          [disabled]="submitting()">
+      </div>
+      <div class="form-group">
+        <label for="edit-description">Description</label>
+        <input
+          id="edit-description"
+          type="text"
+          [(ngModel)]="editForm.description"
+          name="editDescription"
+          required
+          [disabled]="submitting()">
+      </div>
+      <div class="settings-actions">
+        <app-button type="submit" variant="primary" [disabled]="submitting() || !canSaveEdit()">
+          {{ submitting() ? 'Saving…' : 'Save' }}
+        </app-button>
+        <app-button type="button" variant="secondary" [disabled]="submitting()" (click)="cancelEdit()">
+          Cancel
+        </app-button>
+        <app-button type="button" variant="secondary" [disabled]="submitting()" (click)="deleteEditing()">
+          Delete
+        </app-button>
+      </div>
+    </form>
+
     <div class="table-shell">
       <div class="table-toolbar" *ngIf="!loading() && !loadError()">
         <label class="table-search">
@@ -100,23 +199,26 @@ import {
                     Description <span class="table-sort-indicator">{{ sortIndicator('description') }}</span>
                   </button>
                 </th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngIf="loading()">
-                <td colspan="6" class="empty-state">Loading transactions…</td>
+                <td colspan="7" class="empty-state">Loading transactions…</td>
               </tr>
               <tr *ngIf="!loading() && !loadError() && allTransactions().length === 0">
-                <td colspan="6" class="empty-state">
+                <td colspan="7" class="empty-state">
                   No transactions yet. Add one in the Insert Data tab.
                 </td>
               </tr>
               <tr *ngIf="!loading() && !loadError() && allTransactions().length > 0 && tableView().filteredCount === 0">
-                <td colspan="6" class="empty-state">
+                <td colspan="7" class="empty-state">
                   No transactions match these filters.
                 </td>
               </tr>
-              <tr *ngFor="let transaction of tableView().pageRows">
+              <tr
+                *ngFor="let transaction of tableView().pageRows"
+                [class.table-row--editing]="editing()?.id === transaction.id">
                 <td data-label="Date">{{transaction.date | date:'mediumDate'}}</td>
                 <td data-label="Place">
                   <span class="name-with-icon">
@@ -142,6 +244,16 @@ import {
                   {{transaction.amount | currency}}
                 </td>
                 <td data-label="Description">{{transaction.description}}</td>
+                <td data-label="Actions">
+                  <app-button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="submitting()"
+                    (click)="startEdit(transaction)">
+                    Edit
+                  </app-button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -199,7 +311,46 @@ import {
         </span>
       </div>
     </div>
-  `
+  `,
+  styles: [`
+    .table-edit-card {
+      margin-bottom: var(--space-lg);
+    }
+
+    .table-edit-card__title {
+      margin: 0 0 var(--space-md);
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .form-hint {
+      margin: var(--space-xs) 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-muted);
+    }
+
+    .settings-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+
+    .table-row--editing {
+      outline: 2px solid var(--color-primary);
+      outline-offset: -2px;
+    }
+
+    @media (max-width: 768px) {
+      .settings-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .settings-actions app-button:first-child {
+        grid-column: 1 / -1;
+      }
+    }
+  `]
 })
 export class TableComponent {
   readonly pageSizes = TABLE_PAGE_SIZES;
@@ -207,6 +358,28 @@ export class TableComponent {
   allTransactions = this.transactionService.getTransactions();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
+  submitting = this.transactionService.getSubmitting();
+  submitError = this.transactionService.getSubmitError();
+
+  editing = signal<Transaction | null>(null);
+  editType = signal<TransactionEntryType>('expense');
+  editForm = {
+    date: '',
+    category: '',
+    type: 'expense' as TransactionEntryType,
+    amount: 0,
+    description: '',
+    account: '',
+  };
+
+  accountOptions = computed(() => this.accountService.getAccounts()().map(account => account.name));
+
+  categoryOptions = computed(() =>
+    this.categoryService
+      .getCategories()()
+      .filter(category => category.type === this.editType())
+      .map(category => category.name)
+  );
 
   search = signal('');
   sortKey = signal<TableSortKey>('date');
@@ -256,7 +429,112 @@ export class TableComponent {
     () => !this.loading() && !this.loadError() && this.tableView().filteredCount > 0
   );
 
-  constructor(private transactionService: TransactionService) {}
+  constructor(
+    private transactionService: TransactionService,
+    private accountService: AccountService,
+    private categoryService: CategoryService,
+    private datePipe: DatePipe
+  ) {}
+
+  startEdit(transaction: Transaction) {
+    this.transactionService.clearSubmitError();
+    this.editing.set(transaction);
+    this.editType.set(transaction.type);
+    this.editForm = {
+      date: transaction.date,
+      category: transaction.category,
+      type: transaction.type,
+      amount: transaction.amount,
+      description: transaction.description,
+      account: transaction.account,
+    };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelEdit() {
+    this.editing.set(null);
+    this.transactionService.clearSubmitError();
+  }
+
+  onEditTypeChange(type: TransactionEntryType) {
+    this.editForm.type = type;
+    this.editType.set(type);
+    if (this.editForm.category && !this.categoryOptions().includes(this.editForm.category)) {
+      this.editForm.category = '';
+    }
+  }
+
+  canSaveEdit(): boolean {
+    return (
+      this.editForm.date.trim() !== ''
+      && this.editForm.account.trim() !== ''
+      && this.editForm.category.trim() !== ''
+      && this.editForm.description.trim() !== ''
+      && this.editForm.amount > 0
+    );
+  }
+
+  saveEdit() {
+    const current = this.editing();
+    if (!current || !this.canSaveEdit()) {
+      return;
+    }
+
+    this.transactionService.updateTransaction(current.id, {
+      date: this.editForm.date,
+      category: this.editForm.category,
+      type: this.editForm.type,
+      amount: Number(this.editForm.amount),
+      description: this.editForm.description.trim(),
+      account: this.editForm.account,
+    }).subscribe({
+      next: () => this.cancelEdit()
+    });
+  }
+
+  deleteEditing() {
+    const current = this.editing();
+    if (!current) {
+      return;
+    }
+
+    this.deleteTransaction(current);
+  }
+
+  deleteTransaction(transaction: Transaction) {
+    const confirmed = window.confirm(`Delete this ${transaction.type} of ${transaction.amount} (${transaction.description})?`);
+    if (!confirmed) {
+      return;
+    }
+
+    this.transactionService.deleteTransaction(transaction.id).subscribe({
+      next: () => {
+        if (this.editing()?.id === transaction.id) {
+          this.cancelEdit();
+        }
+      }
+    });
+  }
+
+  settlementHint(): string | null {
+    if (this.editForm.type !== 'expense') {
+      return null;
+    }
+
+    const place = this.selectedPlace();
+    if (place?.kind !== 'credit') {
+      return null;
+    }
+
+    const due = creditCardSettlementDate(this.editForm.date, place.billingDay ?? undefined);
+    const dueLabel = this.datePipe.transform(due, 'mediumDate') ?? due;
+    const bank = place.settlementAccount ?? 'your bank';
+    return `Counts as an expense today. ${bank} will be charged on ${dueLabel}.`;
+  }
+
+  private selectedPlace(): Account | undefined {
+    return this.accountService.getAccounts()().find(account => account.name === this.editForm.account);
+  }
 
   showsSettlement(transaction: Transaction): boolean {
     return (

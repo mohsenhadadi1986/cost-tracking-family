@@ -428,4 +428,83 @@ describe('Transaction API integration', () => {
       assert.match(response.body.error, /type must be either expense or income/);
     });
   });
+
+  describe('PATCH /api/transactions/:id', () => {
+    it('updates a transaction and recalculates card settlement', async () => {
+      const { app } = createTestApp(false);
+
+      const created = await request(app).post('/api/transactions').send({
+        date: '2026-09-01',
+        category: 'Food',
+        type: 'expense',
+        amount: 12.5,
+        description: 'Wrong shop',
+        account: DEFAULT_ACCOUNT,
+      });
+
+      const response = await request(app)
+        .patch(`/api/transactions/${created.body.id}`)
+        .send({
+          date: '2026-09-15',
+          category: 'Fuel',
+          type: 'expense',
+          amount: 40,
+          description: 'Corrected fuel',
+          account: DEFAULT_CREDIT_CARD,
+        });
+
+      assert.equal(response.status, 200);
+      assert.equal(response.body.description, 'Corrected fuel');
+      assert.equal(response.body.amount, 40);
+      assert.equal(response.body.account, DEFAULT_CREDIT_CARD);
+      assert.equal(response.body.settlementDate, '2026-10-10');
+      assert.equal(response.body.settlementAccount, DEFAULT_ACCOUNT);
+    });
+
+    it('returns 404 for an unknown transaction', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app)
+        .patch('/api/transactions/9999')
+        .send({
+          date: '2026-09-01',
+          category: 'Food',
+          type: 'expense',
+          amount: 10,
+          description: 'Missing',
+          account: DEFAULT_ACCOUNT,
+        });
+
+      assert.equal(response.status, 404);
+      assert.match(response.body.error, /transaction not found/);
+    });
+  });
+
+  describe('DELETE /api/transactions/:id', () => {
+    it('deletes a transaction and returns 204', async () => {
+      const { app } = createTestApp(false);
+
+      const created = await request(app).post('/api/transactions').send({
+        date: '2026-09-01',
+        category: 'Food',
+        type: 'expense',
+        amount: 12.5,
+        description: 'To delete',
+        account: DEFAULT_ACCOUNT,
+      });
+
+      const deleted = await request(app).delete(`/api/transactions/${created.body.id}`);
+      assert.equal(deleted.status, 204);
+
+      const list = await request(app).get('/api/transactions');
+      assert.equal(list.body.length, 0);
+    });
+
+    it('returns 404 for an unknown transaction', async () => {
+      const { app } = createTestApp(false);
+
+      const response = await request(app).delete('/api/transactions/9999');
+      assert.equal(response.status, 404);
+    });
+  });
 });
