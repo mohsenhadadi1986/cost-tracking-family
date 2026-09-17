@@ -38,27 +38,42 @@ export type PlannedDue = {
 
 const MAX_PAYMENTS = 600;
 
-export function firstDueDate(startDate: string, billingDay: number): string {
-  const [year, month, day] = splitIso(startDate);
-  const dueThisMonth = toIso(year, month, billingDay);
-  return day <= billingDay ? dueThisMonth : addCalendarMonths(dueThisMonth, 1);
+export function firstDueDate(
+  startDate: string,
+  billingDay: number,
+  endDate: string | null = null
+): string {
+  const [year, month] = splitIso(startDate);
+  const dueThisMonth = dueOnBillingDay(year, month, billingDay);
+  if (startDate <= dueThisMonth && (!endDate || dueThisMonth <= endDate)) {
+    return dueThisMonth;
+  }
+
+  const [nextYear, nextMonth] = shiftMonth(year, month, 1);
+  const next = dueOnBillingDay(nextYear, nextMonth, billingDay);
+  if (!endDate || next <= endDate) {
+    return next;
+  }
+
+  return startDate;
 }
 
 export function enumeratePlanDueDates(plan: PlanSchedule): string[] {
-  const first = firstDueDate(plan.startDate, plan.billingDay);
+  const first = firstDueDate(plan.startDate, plan.billingDay, plan.endDate);
   const limit = plan.paymentCount && plan.paymentCount > 0
     ? Math.min(plan.paymentCount, MAX_PAYMENTS)
     : MAX_PAYMENTS;
   const dates: string[] = [];
-  let cursor = first;
+  let [year, month] = splitIso(first);
 
   for (let index = 0; index < limit; index += 1) {
-    if (plan.endDate && cursor > plan.endDate) {
+    const due = index === 0 ? first : dueOnBillingDay(year, month, plan.billingDay);
+    if (plan.endDate && due > plan.endDate) {
       break;
     }
 
-    dates.push(cursor);
-    cursor = addCalendarMonths(cursor, 1);
+    dates.push(due);
+    [year, month] = shiftMonth(year, month, 1);
   }
 
   return dates;
@@ -138,10 +153,25 @@ export function plannedDuesThisMonth(
 
 export function addCalendarMonths(isoDate: string, months: number): string {
   const [year, month, day] = splitIso(isoDate);
+  const [nextYear, nextMonth] = shiftMonth(year, month, months);
+  return dueOnBillingDay(nextYear, nextMonth, day);
+}
+
+function dueOnBillingDay(year: number, month: number, billingDay: number): string {
+  const last = lastDayOfMonth(year, month);
+  const day = Math.min(Math.max(Math.trunc(billingDay) || 1, 1), last);
+  return toIso(year, month, day);
+}
+
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function shiftMonth(year: number, month: number, months: number): [number, number] {
   const monthIndex = month - 1 + months;
   const nextYear = year + Math.floor(monthIndex / 12);
   const nextMonth = (monthIndex % 12 + 12) % 12 + 1;
-  return toIso(nextYear, nextMonth, day);
+  return [nextYear, nextMonth];
 }
 
 function toCents(amount: number): number {

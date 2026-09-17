@@ -47,7 +47,7 @@ export function parsePlanWriteInput(body: unknown, existing?: PlanRecord): PlanW
     throw new Error('endDate must be on or after startDate');
   }
 
-  const firstDue = firstDueDate(startDate, billingDay);
+  const firstDue = firstDueDate(startDate, billingDay, endDate);
   if (endDate && endDate < firstDue) {
     throw new Error('endDate is before the first payment');
   }
@@ -82,7 +82,7 @@ function validateAmount(value: unknown): number {
 
 function parseBillingDay(value: unknown): number {
   const day = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isInteger(day) || day < 1 || day > 28) {
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
     return DEFAULT_CREDIT_BILLING_DAY;
   }
 

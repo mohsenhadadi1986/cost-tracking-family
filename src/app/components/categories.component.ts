@@ -198,7 +198,7 @@ import { todayIsoDate } from '../utils/credit-card';
     <section class="card form-card settings-card">
       <h3 class="categories-section-title">Plans</h3>
       <p class="categories-section-copy">
-        Mortgage or installments. Overview reserves this month until you log the payment.
+        Mortgage, installments, or a bill this month. Overview reserves this month until you log the payment.
       </p>
 
       <div class="form-group">
@@ -256,7 +256,7 @@ import { todayIsoDate } from '../utils/credit-card';
             id="new-plan-billing-day"
             type="number"
             min="1"
-            max="28"
+            max="31"
             [(ngModel)]="newPlanBillingDay"
             name="newPlanBillingDay"
             [disabled]="planSubmitting()">
@@ -372,7 +372,7 @@ import { todayIsoDate } from '../utils/credit-card';
               id="edit-plan-billing-day"
               type="number"
               min="1"
-              max="28"
+              max="31"
               [(ngModel)]="editingPlanBillingDay"
               name="editPlanBillingDay"
               [disabled]="planSubmitting()">

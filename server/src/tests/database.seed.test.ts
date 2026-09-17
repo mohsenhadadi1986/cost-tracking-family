@@ -154,4 +154,57 @@ describe('plans table', () => {
     const { count } = db.prepare('SELECT COUNT(*) AS count FROM plans').get() as { count: number };
     assert.equal(count, 0);
   });
+
+  it('widens billing_day from 1-28 to 1-31 and keeps existing plans', () => {
+    const dbPath = tempDbPath();
+    dbPaths.push(dbPath);
+
+    const first = createDatabase(dbPath, { seed: false });
+    first.exec(`
+      CREATE TABLE plans_old (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        amount REAL NOT NULL CHECK (amount > 0),
+        account TEXT NOT NULL,
+        billing_day INTEGER NOT NULL CHECK (billing_day BETWEEN 1 AND 28),
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        payment_count INTEGER
+      )
+    `);
+    first.exec(`DROP TABLE plans`);
+    first.exec(`ALTER TABLE plans_old RENAME TO plans`);
+    first.prepare(`
+      INSERT INTO plans (name, amount, account, billing_day, start_date, end_date, payment_count)
+      VALUES ('Mutuo', 550, @account, 1, '2026-10-01', NULL, 98)
+    `).run({ account: DEFAULT_ACCOUNT });
+    first.close();
+
+    const second = createDatabase(dbPath, { seed: false });
+    openDatabases.push(second);
+
+    const schema = second.prepare(`
+      SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'plans'
+    `).get() as { sql: string };
+
+    assert.match(schema.sql, /BETWEEN 1 AND 31/i);
+    assert.doesNotMatch(schema.sql, /BETWEEN 1 AND 28/i);
+
+    const existing = second.prepare(`SELECT name, billing_day FROM plans`).get() as {
+      name: string;
+      billing_day: number;
+    };
+    assert.equal(existing.name, 'Mutuo');
+    assert.equal(existing.billing_day, 1);
+
+    second.prepare(`
+      INSERT INTO plans (name, amount, account, billing_day, start_date, end_date, payment_count)
+      VALUES ('Gas bill', 84, @account, 30, '2026-09-30', '2026-09-30', NULL)
+    `).run({ account: DEFAULT_ACCOUNT });
+
+    const gas = second.prepare(`SELECT billing_day FROM plans WHERE name = 'Gas bill'`).get() as {
+      billing_day: number;
+    };
+    assert.equal(gas.billing_day, 30);
+  });
 });

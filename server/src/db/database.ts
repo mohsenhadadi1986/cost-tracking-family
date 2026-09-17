@@ -53,13 +53,14 @@ export function createDatabase(
       name TEXT NOT NULL UNIQUE,
       amount REAL NOT NULL CHECK (amount > 0),
       account TEXT NOT NULL,
-      billing_day INTEGER NOT NULL CHECK (billing_day BETWEEN 1 AND 28),
+      billing_day INTEGER NOT NULL CHECK (billing_day BETWEEN 1 AND 31),
       start_date TEXT NOT NULL,
       end_date TEXT,
       payment_count INTEGER
     )
   `);
 
+  ensurePlanBillingDayRange(db);
   ensureAccountColumn(db);
   ensureAccountKindColumns(db);
   ensureSettlementColumns(db);
@@ -172,6 +173,45 @@ function ensureSettlementColumns(db: Database.Database): void {
     db.exec(`ALTER TABLE transactions ADD COLUMN settlement_account TEXT`);
     db.exec(`UPDATE transactions SET settlement_account = account WHERE settlement_account IS NULL`);
   }
+}
+
+function ensurePlanBillingDayRange(db: Database.Database): void {
+  const table = db.prepare(`
+    SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'plans'
+  `).get() as { sql: string } | undefined;
+
+  if (!table?.sql || !/BETWEEN 1 AND 28/i.test(table.sql)) {
+    return;
+  }
+
+  const migrate = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE plans_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        amount REAL NOT NULL CHECK (amount > 0),
+        account TEXT NOT NULL,
+        billing_day INTEGER NOT NULL CHECK (billing_day BETWEEN 1 AND 31),
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        payment_count INTEGER
+      )
+    `);
+    db.exec(`
+      INSERT INTO plans_new (id, name, amount, account, billing_day, start_date, end_date, payment_count)
+      SELECT id, name, amount, account, billing_day, start_date, end_date, payment_count
+      FROM plans
+    `);
+    db.exec(`DROP TABLE plans`);
+    db.exec(`ALTER TABLE plans_new RENAME TO plans`);
+    db.exec(`DELETE FROM sqlite_sequence WHERE name IN ('plans', 'plans_new')`);
+    db.exec(`
+      INSERT INTO sqlite_sequence (name, seq)
+      SELECT 'plans', IFNULL(MAX(id), 0) FROM plans
+    `);
+  });
+
+  migrate();
 }
 
 function tableColumns(db: Database.Database, table: string): Set<string> {

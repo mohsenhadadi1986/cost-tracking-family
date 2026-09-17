@@ -160,6 +160,51 @@ describe('Plan API integration', () => {
     assert.equal(list.body.length, 0);
   });
 
+  it('saves a one-payment bill on day 30', async () => {
+    const { app } = createTestApp();
+
+    const created = await request(app).post('/api/plans').send({
+      name: 'Gas bill',
+      amount: 84,
+      account: DEFAULT_ACCOUNT,
+      billingDay: 30,
+      startDate: '2026-09-30',
+      endDate: null,
+      paymentCount: 1,
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.billingDay, 30);
+    assert.equal(created.body.remainingCount, 1);
+  });
+
+  it('saves a one-month bill dated after the billing day', async () => {
+    const { app } = createTestApp();
+
+    const created = await request(app).post('/api/plans').send({
+      name: 'Electricity bill',
+      amount: 121.25,
+      account: DEFAULT_ACCOUNT,
+      billingDay: 20,
+      startDate: '2026-09-30',
+      endDate: '2026-09-30',
+      paymentCount: null,
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.remainingCount, 1);
+    assert.equal(created.body.totalCount, 1);
+
+    const summary = await request(app)
+      .get('/api/transactions/summary')
+      .query({ startDate: '2026-09-01', endDate: '2026-09-30' });
+
+    const bill = summary.body.plannedDues.find((due: { name: string }) => due.name === 'Electricity bill');
+    assert.ok(bill);
+    assert.equal(bill.dueDate, '2026-09-30');
+    assert.equal(bill.amount, 121.25);
+  });
+
   it('rejects a plan for an unknown place', async () => {
     const { app } = createTestApp();
 

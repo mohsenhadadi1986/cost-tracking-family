@@ -24,6 +24,21 @@ describe('plan schedule', () => {
     assert.equal(firstDueDate('2026-09-15', 5), '2026-10-05');
   });
 
+  it('keeps a same-month bill when the end date is before the next billing day', () => {
+    assert.equal(firstDueDate('2026-09-30', 20, '2026-09-30'), '2026-09-30');
+    const dates = enumeratePlanDueDates({
+      id: 3,
+      name: 'Electricity bill',
+      amount: 121.25,
+      account: 'ING Current Account',
+      billingDay: 20,
+      startDate: '2026-09-30',
+      endDate: '2026-09-30',
+      paymentCount: null,
+    });
+    assert.deepEqual(dates, ['2026-09-30']);
+  });
+
   it('counts remaining unpaid dues this month', () => {
     const dates = enumeratePlanDueDates(mortgage);
     assert.equal(dates.length, 12);
