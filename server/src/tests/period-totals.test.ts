@@ -34,6 +34,8 @@ describe('period-totals', () => {
     assert.deepEqual(summary.incomeByCategory, { Salary: 100 });
     assert.deepEqual(summary.categoryTotals, { Food: 10, Fuel: 20 });
     assert.equal(summary.currentBalance, 70);
+    assert.equal(summary.availableThisMonth, 70);
+    assert.equal(summary.plannedDueTotal, 0);
     assert.equal(summary.incomeByAccount.find(row => row.account === 'Bank 1')?.amount, 100);
     assert.equal(summary.incomeByAccount.find(row => row.account === 'Bank 1')?.lastDate, '2026-09-01');
     assert.equal(summary.incomeByAccount.find(row => row.account === 'Bank 1')?.lastCategory, 'Salary');
@@ -79,6 +81,7 @@ describe('period-totals', () => {
     assert.equal(beforeDue.creditCardDues[0]?.settlementDate, '2026-10-10');
     assert.equal(beforeDue.creditCardDues[0]?.settlementAccount, 'Bank 1');
     assert.equal(beforeDue.creditCardDues[0]?.amount, 40);
+    assert.equal(beforeDue.availableThisMonth, 60);
 
     const afterDue = buildSummary(transactions, '2026-09-01', '2026-09-30', {
       accounts,
@@ -90,5 +93,6 @@ describe('period-totals', () => {
     assert.equal(afterDue.accountBalances.find(row => row.account === 'Bank 1')?.amount, 60);
     assert.equal(afterDue.accountBalances.find(row => row.account === 'Credit Card')?.amount, 0);
     assert.equal(afterDue.creditCardDues.length, 0);
+    assert.equal(afterDue.availableThisMonth, 60);
   });
 });

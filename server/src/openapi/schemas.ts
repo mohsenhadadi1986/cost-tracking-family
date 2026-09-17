@@ -120,6 +120,24 @@ export function getOpenApiSchemas() {
         amount: { type: 'number' },
       },
     },
+    PlannedDue: {
+      type: 'object',
+      required: ['planId', 'name', 'account', 'dueDate', 'amount', 'remainingCount'],
+      properties: {
+        planId: { type: 'integer' },
+        name: { type: 'string' },
+        account: { type: 'string', description: 'Place the payment leaves' },
+        dueDate: {
+          type: 'string',
+          format: 'date',
+        },
+        amount: { type: 'number' },
+        remainingCount: {
+          type: 'integer',
+          description: 'Unpaid remaining payments on this plan',
+        },
+      },
+    },
     TransactionSummaryResponse: {
       type: 'object',
       required: [
@@ -134,6 +152,9 @@ export function getOpenApiSchemas() {
         'incomeByAccount',
         'expenseByAccount',
         'creditCardDues',
+        'plannedDues',
+        'plannedDueTotal',
+        'availableThisMonth',
       ],
       properties: {
         categoryTotals: {
@@ -176,6 +197,18 @@ export function getOpenApiSchemas() {
         creditCardDues: {
           type: 'array',
           items: { $ref: '#/components/schemas/CreditCardDue' },
+        },
+        plannedDues: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/PlannedDue' },
+        },
+        plannedDueTotal: {
+          type: 'number',
+          description: 'Unpaid planned withdrawals remaining this calendar month',
+        },
+        availableThisMonth: {
+          type: 'number',
+          description: 'Cash on hand minus this month’s unpaid plans and upcoming card dues',
         },
       },
     },
@@ -272,6 +305,60 @@ export function getOpenApiSchemas() {
           type: 'string',
           nullable: true,
         },
+      },
+    },
+    Plan: {
+      type: 'object',
+      required: [
+        'id',
+        'name',
+        'amount',
+        'account',
+        'billingDay',
+        'startDate',
+        'remainingCount',
+        'totalCount',
+      ],
+      properties: {
+        id: { type: 'integer' },
+        name: { type: 'string' },
+        amount: { type: 'number' },
+        account: { type: 'string' },
+        billingDay: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 28,
+        },
+        startDate: { type: 'string', format: 'date' },
+        endDate: { type: 'string', format: 'date', nullable: true },
+        paymentCount: { type: 'integer', nullable: true },
+        remainingCount: { type: 'integer' },
+        totalCount: { type: 'integer' },
+      },
+    },
+    CreatePlanRequest: {
+      type: 'object',
+      required: ['name', 'amount', 'account', 'startDate'],
+      properties: {
+        name: { type: 'string' },
+        amount: { type: 'number', exclusiveMinimum: true },
+        account: { type: 'string' },
+        billingDay: { type: 'integer', minimum: 1, maximum: 28 },
+        startDate: { type: 'string', format: 'date' },
+        endDate: { type: 'string', format: 'date', nullable: true },
+        paymentCount: { type: 'integer', nullable: true },
+      },
+    },
+    UpdatePlanRequest: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        amount: { type: 'number', exclusiveMinimum: true },
+        account: { type: 'string' },
+        billingDay: { type: 'integer', minimum: 1, maximum: 28 },
+        startDate: { type: 'string', format: 'date' },
+        endDate: { type: 'string', format: 'date', nullable: true },
+        paymentCount: { type: 'integer', nullable: true },
       },
     },
     ReceiptScanConfidence: {

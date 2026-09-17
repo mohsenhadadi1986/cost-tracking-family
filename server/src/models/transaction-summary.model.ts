@@ -18,6 +18,15 @@ export interface CreditCardDue {
   amount: number;
 }
 
+export interface PlannedDue {
+  planId: number;
+  name: string;
+  account: string;
+  dueDate: string;
+  amount: number;
+  remainingCount: number;
+}
+
 /**
  * Response shape for GET /api/transactions/summary.
  * Used by the Visualization tab for balance cards and charts.
@@ -34,4 +43,7 @@ export interface TransactionSummaryResponse {
   incomeByAccount: AccountBreakdown[];
   expenseByAccount: AccountBreakdown[];
   creditCardDues: CreditCardDue[];
+  plannedDues: PlannedDue[];
+  plannedDueTotal: number;
+  availableThisMonth: number;
 }

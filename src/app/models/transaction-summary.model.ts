@@ -18,6 +18,15 @@ export interface CreditCardDue {
   amount: number;
 }
 
+export interface PlannedDue {
+  planId: number;
+  name: string;
+  account: string;
+  dueDate: string;
+  amount: number;
+  remainingCount: number;
+}
+
 export interface TransactionSummaryResponse {
   categoryTotals: Record<string, number>;
   incomeByCategory: Record<string, number>;
@@ -30,4 +39,7 @@ export interface TransactionSummaryResponse {
   incomeByAccount: AccountBreakdown[];
   expenseByAccount: AccountBreakdown[];
   creditCardDues: CreditCardDue[];
+  plannedDues: PlannedDue[];
+  plannedDueTotal: number;
+  availableThisMonth: number;
 }

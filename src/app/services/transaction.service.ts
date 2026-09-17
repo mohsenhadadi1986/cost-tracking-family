@@ -6,6 +6,7 @@ import { TransactionFilter } from '../models/transaction-filter.model';
 import { DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
 import { AccountService } from './account.service';
+import { PlanService } from './plan.service';
 import { matchesFilter } from '../utils/matches-filter';
 import { hasCustomSidebarDates, OverviewInterval, resolveOverviewRange } from '../utils/overview-interval';
 import { resolveTransactionSettlement } from '../utils/credit-card';
@@ -24,6 +25,9 @@ const EMPTY_SUMMARY: TransactionSummaryResponse = {
   incomeByAccount: [],
   expenseByAccount: [],
   creditCardDues: [],
+  plannedDues: [],
+  plannedDueTotal: 0,
+  availableThisMonth: 0,
 };
 
 @Injectable({
@@ -32,6 +36,7 @@ const EMPTY_SUMMARY: TransactionSummaryResponse = {
 export class TransactionService {
   private readonly http = inject(HttpClient);
   private readonly accountService = inject(AccountService);
+  private readonly planService = inject(PlanService);
   private readonly transactionsUrl = `${environment.apiBaseUrl}/api/transactions`;
   private readonly summaryUrl = `${this.transactionsUrl}/summary`;
 
@@ -56,6 +61,7 @@ export class TransactionService {
   constructor() {
     effect(() => {
       this.accountService.getAccounts()();
+      this.planService.getPlans()();
       this.applySummaryFromTransactions();
     }, { allowSignalWrites: true });
     this.loadTransactions().subscribe();
@@ -277,6 +283,7 @@ export class TransactionService {
         name: account.name,
         kind: account.kind,
       })),
+      plans: this.planService.getPlans()(),
     }));
   }
 }

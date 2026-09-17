@@ -5,6 +5,7 @@ import path from 'path';
 import { createDatabase } from '../db/database';
 import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
+import { PlanRepository } from '../repositories/plan.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
@@ -22,8 +23,9 @@ try {
   const db = createDatabase(dbPath);
   const categoryRepository = new CategoryRepository(db);
   const accountRepository = new AccountRepository(db);
+  const planRepository = new PlanRepository(db);
   const repository = new TransactionRepository(db, categoryRepository, accountRepository);
-  const summaryService = new TransactionSummaryService(repository, accountRepository);
+  const summaryService = new TransactionSummaryService(repository, accountRepository, planRepository);
 
   const seeded = repository.findAll();
   assert.equal(seeded.length, MOCK_TRANSACTIONS.length, 'seed should load mock transactions');

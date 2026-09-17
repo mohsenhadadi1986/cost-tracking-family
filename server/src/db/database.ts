@@ -47,6 +47,19 @@ export function createDatabase(
     )
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL CHECK (amount > 0),
+      account TEXT NOT NULL,
+      billing_day INTEGER NOT NULL CHECK (billing_day BETWEEN 1 AND 28),
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      payment_count INTEGER
+    )
+  `);
+
   ensureAccountColumn(db);
   ensureAccountKindColumns(db);
   ensureSettlementColumns(db);

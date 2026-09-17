@@ -55,6 +55,10 @@ export class AccountService {
       throw new AccountInUseError();
     }
 
+    if (this.repository.countPlansReferencing(account.name) > 0) {
+      throw new AccountInUseError();
+    }
+
     this.repository.delete(id);
   }
 }

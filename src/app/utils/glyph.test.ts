@@ -21,6 +21,7 @@ describe('glyph keys', () => {
     assert.equal(categoryIconKey('Internet Home'), 'wifi');
     assert.equal(placeIconKey('Add place'), 'plus');
     assert.equal(categoryIconKey('Add category'), 'plus');
+    assert.equal(categoryIconKey('Add plan'), 'plus');
     assert.equal(tabIconKey('Insert Data'), 'plus');
     assert.equal(tabIconKey('Visualization'), 'layout');
     assert.equal(tabIconKey('Charts'), 'chart');

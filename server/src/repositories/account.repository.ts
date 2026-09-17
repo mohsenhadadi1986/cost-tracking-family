@@ -161,6 +161,17 @@ export class AccountRepository {
             oldName: existing.name,
             newName: input.name,
           });
+
+        this.db
+          .prepare(`
+            UPDATE plans
+            SET account = @newName
+            WHERE account = @oldName
+          `)
+          .run({
+            oldName: existing.name,
+            newName: input.name,
+          });
       }
     });
 
@@ -198,6 +209,18 @@ export class AccountRepository {
         SELECT COUNT(*) AS count
         FROM accounts
         WHERE kind = 'credit' AND settlement_account = @name
+      `)
+      .get({ name }) as { count: number };
+
+    return row.count;
+  }
+
+  countPlansReferencing(name: string): number {
+    const row = this.db
+      .prepare(`
+        SELECT COUNT(*) AS count
+        FROM plans
+        WHERE account = @name
       `)
       .get({ name }) as { count: number };
 

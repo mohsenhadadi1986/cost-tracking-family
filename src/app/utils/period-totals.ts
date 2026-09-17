@@ -1,6 +1,7 @@
 import { AccountBreakdown, CreditCardDue, DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
 import { todayIsoDate } from './credit-card';
+import { markPlanOccurrences, plannedDuesThisMonth, PlanSchedule } from './plan-schedule';
 
 const MONTHLY_BUCKET_THRESHOLD_DAYS = 62;
 
@@ -189,6 +190,7 @@ export function buildSummary(
     lifetimeTransactions?: SummaryTransaction[];
     accountNames?: string[];
     accounts?: AccountSummaryMeta[];
+    plans?: PlanSchedule[];
     asOfDate?: string;
   } = {}
 ): TransactionSummaryResponse {
@@ -197,6 +199,16 @@ export function buildSummary(
   const asOfDate = options.asOfDate ?? todayIsoDate();
   const accounts = options.accounts ?? (options.accountNames ?? []).map(name => ({ name, kind: 'wallet' as const }));
   const accountBalances = getAccountBalances(lifetime, accounts, asOfDate);
+  const currentBalance = accountBalances
+    .filter(row => !isCreditAccount(row.account, accounts))
+    .reduce((sum, row) => sum + row.amount, 0);
+  const creditCardDues = getCreditCardDues(lifetime, accounts, asOfDate);
+  const plannedDues = plannedDuesThisMonth(
+    markPlanOccurrences(options.plans ?? [], lifetime),
+    asOfDate
+  );
+  const plannedDueTotal = plannedDues.reduce((sum, due) => sum + due.amount, 0);
+  const creditCardDueTotal = creditCardDues.reduce((sum, due) => sum + due.amount, 0);
 
   return {
     categoryTotals: getCategoryTotals(transactions),
@@ -205,13 +217,14 @@ export function buildSummary(
     totalIncome: totals.totalIncome,
     totalExpense: totals.totalExpense,
     netBalance: totals.netBalance,
-    currentBalance: accountBalances
-      .filter(row => !isCreditAccount(row.account, accounts))
-      .reduce((sum, row) => sum + row.amount, 0),
+    currentBalance,
     accountBalances,
     incomeByAccount: getIncomeByAccount(transactions, accounts.map(account => account.name)),
     expenseByAccount: getExpenseByAccount(transactions, accounts.map(account => account.name)),
-    creditCardDues: getCreditCardDues(lifetime, accounts, asOfDate),
+    creditCardDues,
+    plannedDues,
+    plannedDueTotal,
+    availableThisMonth: currentBalance - plannedDueTotal - creditCardDueTotal,
   };
 }
 

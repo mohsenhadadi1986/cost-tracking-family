@@ -1,5 +1,6 @@
 import { TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { AccountRepository } from '../repositories/account.repository';
+import { PlanRepository } from '../repositories/plan.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import { buildSummary } from './period-totals';
@@ -7,7 +8,8 @@ import { buildSummary } from './period-totals';
 export class TransactionSummaryService {
   constructor(
     private readonly repository: TransactionRepository,
-    private readonly accountRepository: AccountRepository
+    private readonly accountRepository: AccountRepository,
+    private readonly planRepository: PlanRepository
   ) {}
 
   getSummary(criteria: TransactionFilterCriteria = {}): TransactionSummaryResponse {
@@ -20,6 +22,7 @@ export class TransactionSummaryService {
         name: account.name,
         kind: account.kind,
       })),
+      plans: this.planRepository.findAll(),
     });
   }
 }

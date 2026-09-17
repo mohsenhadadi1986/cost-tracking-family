@@ -143,3 +143,15 @@ describe('default account seed', () => {
     assert.equal(moved.settlement_account, DEFAULT_ACCOUNT);
   });
 });
+
+describe('plans table', () => {
+  it('creates an empty plans table and does not seed mock plans', () => {
+    const dbPath = tempDbPath();
+    dbPaths.push(dbPath);
+    const db = createDatabase(dbPath, { seed: true });
+    openDatabases.push(db);
+
+    const { count } = db.prepare('SELECT COUNT(*) AS count FROM plans').get() as { count: number };
+    assert.equal(count, 0);
+  });
+});

@@ -3,7 +3,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { FilterBannerComponent } from './filter-banner.component';
 import { ButtonComponent } from './ui/button.component';
 import { GlyphComponent } from './ui/glyph.component';
-import { AccountBreakdown, CreditCardDue } from '../models/transaction-summary.model';
+import { AccountBreakdown, CreditCardDue, PlannedDue } from '../models/transaction-summary.model';
 import { AccountService } from '../services/account.service';
 import { TransactionService } from '../services/transaction.service';
 import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-interval';
@@ -73,6 +73,19 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
         </article>
 
         <article class="overview-card overview-card--detail">
+          <h3 class="overview-card__label">Available this month</h3>
+          <p
+            class="overview-card__value"
+            [class.amount-income]="availableThisMonth() >= 0"
+            [class.amount-expense]="availableThisMonth() < 0">
+            {{ availableThisMonth() | currency }}
+          </p>
+          <p class="overview-card__hint">
+            Cash today minus this month’s unpaid plans and upcoming card due.
+          </p>
+        </article>
+
+        <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Income</h3>
           <p class="overview-card__value amount-income">{{ summary().totalIncome | currency }}</p>
           <p class="overview-card__hint">Received in this range, by place</p>
@@ -111,6 +124,27 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
           </ul>
           <p *ngIf="expenseByAccount().length === 0" class="overview-card__empty">
             No expenses in this range yet.
+          </p>
+        </article>
+
+        <article class="overview-card overview-card--detail">
+          <h3 class="overview-card__label">Planned this month</h3>
+          <p class="overview-card__value amount-expense">{{ plannedDueTotal() | currency }}</p>
+          <p class="overview-card__hint">Reserved withdrawals. A logged payment of the same amount drops out.</p>
+          <ul class="place-list" *ngIf="plannedDues().length > 0">
+            <li class="place-list__item" *ngFor="let due of plannedDues()">
+              <div class="place-list__row">
+                <span class="place-list__name">
+                  <app-glyph set="category" [name]="due.name"></app-glyph>
+                  {{ due.name }}
+                </span>
+                <span class="place-list__amount amount-expense">{{ due.amount | currency }}</span>
+              </div>
+              <p class="place-list__meta">{{ planMeta(due) }}</p>
+            </li>
+          </ul>
+          <p *ngIf="plannedDues().length === 0" class="overview-card__empty">
+            No unpaid plans this month. Add a mortgage or installment on the Settings tab.
           </p>
         </article>
 
@@ -178,6 +212,12 @@ export class VisualizationComponent {
     this.creditCardDues().reduce((sum, due) => sum + due.amount, 0)
   );
 
+  plannedDues = computed(() => this.summary().plannedDues ?? []);
+
+  plannedDueTotal = computed(() => this.summary().plannedDueTotal ?? 0);
+
+  availableThisMonth = computed(() => this.summary().availableThisMonth ?? this.summary().currentBalance);
+
   incomeSources = computed(() =>
     Object.entries(this.summary().incomeByCategory)
       .map(([name, amount]) => ({ name, amount }))
@@ -216,6 +256,12 @@ export class VisualizationComponent {
   dueMeta(due: CreditCardDue): string {
     const date = this.datePipe.transform(due.settlementDate, 'mediumDate') ?? due.settlementDate;
     return `Withdrawn from ${due.settlementAccount} on ${date}`;
+  }
+
+  planMeta(due: PlannedDue): string {
+    const date = this.datePipe.transform(due.dueDate, 'mediumDate') ?? due.dueDate;
+    const left = due.remainingCount === 1 ? '1 left' : `${due.remainingCount} left`;
+    return `${date} · ${due.account} · ${left}`;
   }
 
   setInterval(interval: OverviewInterval) {
