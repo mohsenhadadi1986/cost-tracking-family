@@ -127,14 +127,19 @@ export function remainingUnpaidCount(occurrences: PlanOccurrence[], planId: numb
   return occurrences.filter(occurrence => occurrence.planId === planId && !occurrence.paid).length;
 }
 
-export function plannedDuesThisMonth(
+export function plannedDuesBetween(
   occurrences: PlanOccurrence[],
-  asOfDate: string
+  fromMonth: string,
+  toMonth: string
 ): PlannedDue[] {
-  const month = asOfDate.slice(0, 7);
-
   return occurrences
-    .filter(occurrence => !occurrence.paid && occurrence.dueDate.startsWith(month))
+    .filter(occurrence => {
+      if (occurrence.paid) {
+        return false;
+      }
+      const month = occurrence.dueDate.slice(0, 7);
+      return month >= fromMonth && month <= toMonth;
+    })
     .map(occurrence => ({
       planId: occurrence.planId,
       name: occurrence.name,
@@ -149,6 +154,14 @@ export function plannedDuesThisMonth(
       }
       return left.name.localeCompare(right.name);
     });
+}
+
+export function plannedDuesThisMonth(
+  occurrences: PlanOccurrence[],
+  asOfDate: string
+): PlannedDue[] {
+  const month = asOfDate.slice(0, 7);
+  return plannedDuesBetween(occurrences, month, month);
 }
 
 export function addCalendarMonths(isoDate: string, months: number): string {

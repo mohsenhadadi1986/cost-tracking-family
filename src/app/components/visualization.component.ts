@@ -6,7 +6,7 @@ import { GlyphComponent } from './ui/glyph.component';
 import { AccountBreakdown, CreditCardDue, PlannedDue } from '../models/transaction-summary.model';
 import { AccountService } from '../services/account.service';
 import { TransactionService } from '../services/transaction.service';
-import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-interval';
+import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../utils/overview-interval';
 
 @Component({
   selector: 'app-visualization',
@@ -22,6 +22,26 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
     <div *ngIf="loading()" class="card empty-state">Loading overview…</div>
     <ng-container *ngIf="!loading() && !loadError()">
       <div class="overview-interval">
+        <p class="overview-interval__label">Month</p>
+        <div class="overview-month" role="group" aria-label="Overview month">
+          <app-button
+            type="button"
+            size="sm"
+            variant="secondary"
+            [disabled]="usesSidebarDates()"
+            (click)="shiftMonth(-1)">
+            Previous
+          </app-button>
+          <p class="overview-month__label">{{ monthLabel() }}</p>
+          <app-button
+            type="button"
+            size="sm"
+            variant="secondary"
+            [disabled]="usesSidebarDates()"
+            (click)="shiftMonth(1)">
+            Next
+          </app-button>
+        </div>
         <p class="overview-interval__label">Time range</p>
         <div class="overview-interval__chips" role="group" aria-label="Overview time range">
           <app-button
@@ -44,11 +64,11 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
           <h3 class="overview-card__label">Current balance</h3>
           <p
             class="overview-card__value"
-            [class.amount-income]="summary().currentBalance >= 0"
-            [class.amount-expense]="summary().currentBalance < 0">
-            {{ summary().currentBalance | currency }}
+            [class.amount-income]="displayBalance() >= 0"
+            [class.amount-expense]="displayBalance() < 0">
+            {{ displayBalance() | currency }}
           </p>
-          <p class="overview-card__hint">Cash in banks and wallets today. Card spend leaves the bank on the 10th.</p>
+          <p class="overview-card__hint">{{ balanceHint() }}</p>
           <ul class="place-list" *ngIf="accountBalances().length > 0">
             <li class="place-list__item" *ngFor="let place of accountBalances()">
               <div class="place-list__row">
@@ -72,8 +92,26 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
           </p>
         </article>
 
+        <article class="overview-card overview-card--detail" *ngIf="receivableBalances().length > 0">
+          <h3 class="overview-card__label">Lent out</h3>
+          <p class="overview-card__value amount-income">{{ receivableTotal() | currency }}</p>
+          <p class="overview-card__hint">Still yours, but not in a wallet until they pay you back.</p>
+          <ul class="place-list">
+            <li class="place-list__item" *ngFor="let row of receivableBalances()">
+              <div class="place-list__row">
+                <span class="place-list__name">
+                  <app-glyph set="category" [name]="row.account"></app-glyph>
+                  {{ row.account }}
+                </span>
+                <span class="place-list__amount amount-income">{{ row.amount | currency }}</span>
+              </div>
+              <p class="place-list__meta">{{ receivableMeta(row) }}</p>
+            </li>
+          </ul>
+        </article>
+
         <article class="overview-card overview-card--detail">
-          <h3 class="overview-card__label">Available this month</h3>
+          <h3 class="overview-card__label">Available {{ monthPhrase() }}</h3>
           <p
             class="overview-card__value"
             [class.amount-income]="availableThisMonth() >= 0"
@@ -81,7 +119,7 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
             {{ availableThisMonth() | currency }}
           </p>
           <p class="overview-card__hint">
-            Cash today minus this month’s unpaid plans and upcoming card due.
+            Projected cash minus unpaid plans and card charges {{ monthPhrase() }}.
           </p>
         </article>
 
@@ -128,7 +166,7 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
         </article>
 
         <article class="overview-card overview-card--detail">
-          <h3 class="overview-card__label">Planned this month</h3>
+          <h3 class="overview-card__label">Planned {{ monthPhrase() }}</h3>
           <p class="overview-card__value amount-expense">{{ plannedDueTotal() | currency }}</p>
           <p class="overview-card__hint">Reserved withdrawals. A logged payment of the same amount drops out.</p>
           <ul class="place-list" *ngIf="plannedDues().length > 0">
@@ -144,7 +182,7 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
             </li>
           </ul>
           <p *ngIf="plannedDues().length === 0" class="overview-card__empty">
-            No unpaid plans this month. Add a mortgage or installment on the Settings tab.
+            No unpaid plans {{ monthPhrase() }}. Add a mortgage or installment on the Settings tab.
           </p>
         </article>
 
@@ -194,13 +232,32 @@ export class VisualizationComponent {
 
   activeFilter = this.transactionService.getActiveFilter();
   interval = this.transactionService.getOverviewInterval();
+  overviewMonth = this.transactionService.getOverviewMonth();
   summary = this.transactionService.getSummary();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
   usesSidebarDates = computed(() => hasCustomSidebarDates(this.activeFilter()));
 
+  monthLabel = computed(() => {
+    const date = `${this.overviewMonth()}-01`;
+    return this.datePipe.transform(date, 'MMMM y') ?? date;
+  });
+
+  monthPhrase = computed(() => {
+    if (this.overviewMonth() === currentMonthKey() && this.interval() === 'month' && !this.usesSidebarDates()) {
+      return 'this month';
+    }
+    return `in ${this.monthLabel()}`;
+  });
+
   accountBalances = computed(() => this.summary().accountBalances);
+
+  receivableBalances = computed(() => this.summary().receivableBalances ?? []);
+
+  receivableTotal = computed(() => this.summary().receivableTotal ?? 0);
+
+  displayBalance = computed(() => this.summary().projectedBalance ?? this.summary().currentBalance);
 
   incomeByAccount = computed(() => this.summary().incomeByAccount);
 
@@ -264,11 +321,40 @@ export class VisualizationComponent {
     return `${date} · ${due.account} · ${left}`;
   }
 
+  receivableMeta(row: AccountBreakdown): string {
+    const date = row.lastDate ? this.datePipe.transform(row.lastDate, 'mediumDate') ?? row.lastDate : '';
+    if (row.lastCategory && date) {
+      return `From ${row.lastCategory} · ${date}`;
+    }
+    if (row.lastCategory) {
+      return `From ${row.lastCategory}`;
+    }
+    return date || 'Outstanding';
+  }
+
+  balanceHint(): string {
+    if (this.overviewMonth() === currentMonthKey() && !this.usesSidebarDates()) {
+      return 'Cash in banks and wallets today. Money you lent is listed separately.';
+    }
+    if (this.overviewMonth() > currentMonthKey() && !this.usesSidebarDates()) {
+      return 'Cash after unpaid plans and card charges before this month. Money you lent is listed separately.';
+    }
+    return 'Cash in banks and wallets as of this date. Money you lent is listed separately.';
+  }
+
   setInterval(interval: OverviewInterval) {
     if (this.usesSidebarDates()) {
       return;
     }
 
     this.transactionService.setOverviewInterval(interval);
+  }
+
+  shiftMonth(delta: number) {
+    if (this.usesSidebarDates()) {
+      return;
+    }
+
+    this.transactionService.shiftOverviewMonth(delta);
   }
 }

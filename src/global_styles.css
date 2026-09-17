@@ -507,6 +507,21 @@ input:disabled {
   gap: var(--space-sm);
 }
 
+.overview-month {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.overview-month__label {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
 .overview-interval__hint,
 .overview-sources__empty {
   margin: var(--space-sm) 0 0;
@@ -1332,6 +1347,20 @@ tbody tr:last-child td {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-sm);
+  }
+
+  .overview-month {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .overview-month app-button:first-child,
+  .overview-month app-button:last-child {
+    display: block;
+    width: 100%;
+  }
+
+  .overview-month app-button .btn {
+    width: 100%;
   }
 
   .overview-interval__chips app-button {

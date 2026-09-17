@@ -1,7 +1,7 @@
 import { AccountBreakdown, CreditCardDue, DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
 import { todayIsoDate } from '../utils/credit-card';
-import { markPlanOccurrences, plannedDuesThisMonth, PlanSchedule } from '../utils/plan-schedule';
+import { markPlanOccurrences, plannedDuesBetween, PlanSchedule } from '../utils/plan-schedule';
 
 const MONTHLY_BUCKET_THRESHOLD_DAYS = 62;
 
@@ -113,11 +113,15 @@ export function getCategoryTotals(transactions: SummaryTransaction[]): Record<st
 
 export function getIncomeByCategory(transactions: SummaryTransaction[]): Record<string, number> {
   return transactions.reduce((acc, curr) => {
-    if (curr.type === 'income') {
+    if (curr.type === 'income' && !isReceivableCategory(curr.category)) {
       acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
     }
     return acc;
   }, {} as Record<string, number>);
+}
+
+export function isReceivableCategory(name: string): boolean {
+  return /^(lend|loan)\b/i.test(name.trim());
 }
 
 export function getTotals(transactions: SummaryTransaction[]): {
@@ -130,7 +134,9 @@ export function getTotals(transactions: SummaryTransaction[]): {
 
   for (const transaction of transactions) {
     if (transaction.type === 'income') {
-      totalIncome += transaction.amount;
+      if (!isReceivableCategory(transaction.category)) {
+        totalIncome += transaction.amount;
+      }
     } else {
       totalExpense += transaction.amount;
     }
@@ -196,19 +202,33 @@ export function buildSummary(
 ): TransactionSummaryResponse {
   const totals = getTotals(transactions);
   const lifetime = options.lifetimeTransactions ?? transactions;
-  const asOfDate = options.asOfDate ?? todayIsoDate();
+  const asOfDate = options.asOfDate ?? resolveAsOfDate(endDate);
+  const dueMonth = resolveDueMonth(startDate, endDate, asOfDate);
+  const asOfMonth = asOfDate.slice(0, 7);
+  const reservedFromMonth = asOfMonth < dueMonth ? asOfMonth : dueMonth;
   const accounts = options.accounts ?? (options.accountNames ?? []).map(name => ({ name, kind: 'wallet' as const }));
   const accountBalances = getAccountBalances(lifetime, accounts, asOfDate);
+  const receivableBalances = getReceivableBalances(lifetime, asOfDate);
   const currentBalance = accountBalances
     .filter(row => !isCreditAccount(row.account, accounts))
     .reduce((sum, row) => sum + row.amount, 0);
-  const creditCardDues = getCreditCardDues(lifetime, accounts, asOfDate);
-  const plannedDues = plannedDuesThisMonth(
-    markPlanOccurrences(options.plans ?? [], lifetime),
-    asOfDate
-  );
+  const occurrences = markPlanOccurrences(options.plans ?? [], lifetime);
+  const plannedDues = plannedDuesBetween(occurrences, dueMonth, dueMonth);
+  const reservedPlanTotal = plannedDuesBetween(occurrences, reservedFromMonth, dueMonth)
+    .reduce((sum, due) => sum + due.amount, 0);
+  const creditCardDues = getCreditCardDues(lifetime, accounts, asOfDate, dueMonth, dueMonth);
+  const reservedCardDueTotal = getCreditCardDues(
+    lifetime,
+    accounts,
+    asOfDate,
+    reservedFromMonth,
+    dueMonth
+  ).reduce((sum, due) => sum + due.amount, 0);
   const plannedDueTotal = plannedDues.reduce((sum, due) => sum + due.amount, 0);
   const creditCardDueTotal = creditCardDues.reduce((sum, due) => sum + due.amount, 0);
+  const interveningReserved = reservedPlanTotal + reservedCardDueTotal - plannedDueTotal - creditCardDueTotal;
+  const projectedBalance = currentBalance - interveningReserved;
+  const receivableTotal = receivableBalances.reduce((sum, row) => sum + row.amount, 0);
 
   return {
     categoryTotals: getCategoryTotals(transactions),
@@ -218,13 +238,20 @@ export function buildSummary(
     totalExpense: totals.totalExpense,
     netBalance: totals.netBalance,
     currentBalance,
+    projectedBalance,
     accountBalances,
-    incomeByAccount: getIncomeByAccount(transactions, accounts.map(account => account.name)),
-    expenseByAccount: getExpenseByAccount(transactions, accounts.map(account => account.name)),
+    incomeByAccount: getIncomeByAccount(
+      transactions.filter(transaction => !isReceivableCategory(transaction.category)),
+      accounts.map(account => account.name)
+    ).filter(row => row.amount !== 0),
+    expenseByAccount: getExpenseByAccount(transactions, accounts.map(account => account.name))
+      .filter(row => row.amount !== 0),
     creditCardDues,
     plannedDues,
     plannedDueTotal,
-    availableThisMonth: currentBalance - plannedDueTotal - creditCardDueTotal,
+    availableThisMonth: projectedBalance - plannedDueTotal - creditCardDueTotal,
+    receivableBalances,
+    receivableTotal,
   };
 }
 
@@ -259,7 +286,14 @@ export function getAccountBalances(
         continue;
       }
 
-      if (transaction.type === 'income' && transaction.account === account) {
+      if (
+        transaction.type === 'income'
+        && transaction.account === account
+        && transaction.date <= asOfDate
+      ) {
+        if (isReceivableCategory(transaction.category)) {
+          continue;
+        }
         amount += transaction.amount;
         related.push(transaction);
       } else if (
@@ -310,7 +344,9 @@ export function getExpenseByAccount(
 export function getCreditCardDues(
   transactions: SummaryTransaction[],
   accounts: AccountSummaryMeta[],
-  asOfDate: string
+  asOfDate: string,
+  fromMonth?: string,
+  toMonth = fromMonth
 ): CreditCardDue[] {
   const creditNames = new Set(
     accounts.filter(account => account.kind === 'credit').map(account => account.name)
@@ -324,6 +360,12 @@ export function getCreditCardDues(
 
     const settlementDate = settlementDateOf(transaction);
     if (settlementDate <= asOfDate) {
+      continue;
+    }
+    if (fromMonth && settlementDate.slice(0, 7) < fromMonth) {
+      continue;
+    }
+    if (toMonth && settlementDate.slice(0, 7) > toMonth) {
       continue;
     }
 
@@ -348,6 +390,53 @@ export function getCreditCardDues(
     }
     return left.account.localeCompare(right.account);
   });
+}
+
+export function getReceivableBalances(
+  transactions: SummaryTransaction[],
+  asOfDate: string = todayIsoDate()
+): AccountBreakdown[] {
+  const grouped = new Map<string, { amount: number; related: SummaryTransaction[] }>();
+
+  for (const transaction of transactions) {
+    if (!isReceivableCategory(transaction.category) || transaction.date > asOfDate) {
+      continue;
+    }
+
+    const current = grouped.get(transaction.category) ?? { amount: 0, related: [] };
+    current.amount += transaction.amount;
+    current.related.push(transaction);
+    grouped.set(transaction.category, current);
+  }
+
+  const rows = [...grouped.entries()]
+    .filter(([, value]) => value.amount !== 0)
+    .map(([account, value]) => {
+      const latest = [...value.related].sort((left, right) => (left.date < right.date ? 1 : -1))[0];
+      return {
+        account,
+        amount: value.amount,
+        lastDate: latest?.date,
+        lastCategory: latest?.account,
+      };
+    });
+
+  return sortBreakdown(rows);
+}
+
+function resolveAsOfDate(endDate?: string): string {
+  const today = todayIsoDate();
+  if (endDate && endDate < today) {
+    return endDate;
+  }
+  return today;
+}
+
+function resolveDueMonth(startDate: string | undefined, endDate: string | undefined, asOfDate: string): string {
+  if (startDate && endDate && startDate.slice(0, 7) === endDate.slice(0, 7)) {
+    return startDate.slice(0, 7);
+  }
+  return asOfDate.slice(0, 7);
 }
 
 function settlementDateOf(transaction: SummaryTransaction): string {
@@ -416,6 +505,11 @@ function buildAccountBreakdown(
 
 function sumByType(transactions: SummaryTransaction[], type: 'income' | 'expense'): number {
   return transactions
-    .filter(transaction => transaction.type === type)
+    .filter(transaction => {
+      if (transaction.type !== type) {
+        return false;
+      }
+      return type === 'expense' || !isReceivableCategory(transaction.category);
+    })
     .reduce((sum, transaction) => sum + transaction.amount, 0);
 }

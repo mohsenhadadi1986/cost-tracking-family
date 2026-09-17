@@ -148,6 +148,7 @@ export function getOpenApiSchemas() {
         'totalExpense',
         'netBalance',
         'currentBalance',
+        'projectedBalance',
         'accountBalances',
         'incomeByAccount',
         'expenseByAccount',
@@ -155,6 +156,8 @@ export function getOpenApiSchemas() {
         'plannedDues',
         'plannedDueTotal',
         'availableThisMonth',
+        'receivableBalances',
+        'receivableTotal',
       ],
       properties: {
         categoryTotals: {
@@ -180,7 +183,11 @@ export function getOpenApiSchemas() {
         },
         currentBalance: {
           type: 'number',
-          description: 'Cash on hand today across banks and wallets. Credit-card spend leaves the bank on settlement day.',
+          description: 'Cash on hand as of today across banks and wallets.',
+        },
+        projectedBalance: {
+          type: 'number',
+          description: 'Cash after unpaid plans and card charges that fall before the selected month',
         },
         accountBalances: {
           type: 'array',
@@ -208,7 +215,16 @@ export function getOpenApiSchemas() {
         },
         availableThisMonth: {
           type: 'number',
-          description: 'Cash on hand minus this month’s unpaid plans and upcoming card dues',
+          description: 'Cash on hand minus this month’s unpaid plans and card dues',
+        },
+        receivableBalances: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/AccountBreakdown' },
+          description: 'Money lent out, kept separate from cash in hand',
+        },
+        receivableTotal: {
+          type: 'number',
+          description: 'Total still owed to you from lend/loan categories',
         },
       },
     },

@@ -8,7 +8,13 @@ import { Transaction } from '../models/transaction.model';
 import { AccountService } from './account.service';
 import { PlanService } from './plan.service';
 import { matchesFilter } from '../utils/matches-filter';
-import { hasCustomSidebarDates, OverviewInterval, resolveOverviewRange } from '../utils/overview-interval';
+import {
+  currentMonthKey,
+  hasCustomSidebarDates,
+  OverviewInterval,
+  resolveOverviewRange,
+  shiftMonthKey,
+} from '../utils/overview-interval';
 import { resolveTransactionSettlement } from '../utils/credit-card';
 import { buildSummary } from '../utils/period-totals';
 import { environment } from '../../environments/environment';
@@ -21,6 +27,7 @@ const EMPTY_SUMMARY: TransactionSummaryResponse = {
   totalExpense: 0,
   netBalance: 0,
   currentBalance: 0,
+  projectedBalance: 0,
   accountBalances: [],
   incomeByAccount: [],
   expenseByAccount: [],
@@ -28,6 +35,8 @@ const EMPTY_SUMMARY: TransactionSummaryResponse = {
   plannedDues: [],
   plannedDueTotal: 0,
   availableThisMonth: 0,
+  receivableBalances: [],
+  receivableTotal: 0,
 };
 
 @Injectable({
@@ -43,6 +52,7 @@ export class TransactionService {
   private transactions = signal<Transaction[]>([]);
   private activeFilter = signal<TransactionFilter | null>(null);
   private overviewInterval = signal<OverviewInterval>('month');
+  private overviewMonth = signal(currentMonthKey());
   private filteredTransactions = computed(() => {
     const filter = this.activeFilter();
     const all = this.transactions();
@@ -209,12 +219,19 @@ export class TransactionService {
     return this.overviewInterval.asReadonly();
   }
 
+  getOverviewMonth() {
+    return this.overviewMonth.asReadonly();
+  }
+
   setOverviewInterval(interval: OverviewInterval): void {
     this.overviewInterval.set(interval);
-    this.applySummaryFromTransactions();
-    if (!this.isMockMode()) {
-      this.refreshSummary().subscribe();
-    }
+    this.reloadOverview();
+  }
+
+  shiftOverviewMonth(delta: number): void {
+    this.overviewMonth.set(shiftMonthKey(this.overviewMonth(), delta));
+    this.overviewInterval.set('month');
+    this.reloadOverview();
   }
 
   usesSidebarDateRange(): boolean {
@@ -284,9 +301,16 @@ export class TransactionService {
     return params ? { params } : {};
   }
 
+  private reloadOverview(): void {
+    this.applySummaryFromTransactions();
+    if (!this.isMockMode()) {
+      this.refreshSummary().subscribe();
+    }
+  }
+
   private overviewSummaryParams(): { params: HttpParams } {
     const filter = this.activeFilter();
-    const range = resolveOverviewRange(this.overviewInterval(), filter);
+    const range = resolveOverviewRange(this.overviewInterval(), filter, new Date(), this.overviewMonth());
     let params = new HttpParams()
       .set('startDate', range.startDate)
       .set('endDate', range.endDate);
@@ -344,7 +368,7 @@ export class TransactionService {
 
   private applySummaryFromTransactions(): void {
     const filter = this.activeFilter();
-    const range = resolveOverviewRange(this.overviewInterval(), filter);
+    const range = resolveOverviewRange(this.overviewInterval(), filter, new Date(), this.overviewMonth());
     const rows = this.filteredTransactions().filter(transaction =>
       transaction.date >= range.startDate && transaction.date <= range.endDate
     );

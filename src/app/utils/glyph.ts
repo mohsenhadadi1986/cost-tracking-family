@@ -85,6 +85,9 @@ export function categoryIconKey(name: string): string {
   if (normalized.includes('entertainment')) {
     return 'film';
   }
+  if (normalized.startsWith('lend') || normalized.startsWith('loan')) {
+    return 'users';
+  }
   if (normalized.includes('salary')) {
     return 'banknote';
   }

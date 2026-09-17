@@ -35,6 +35,7 @@ export interface TransactionSummaryResponse {
   totalExpense: number;
   netBalance: number;
   currentBalance: number;
+  projectedBalance: number;
   accountBalances: AccountBreakdown[];
   incomeByAccount: AccountBreakdown[];
   expenseByAccount: AccountBreakdown[];
@@ -42,4 +43,6 @@ export interface TransactionSummaryResponse {
   plannedDues: PlannedDue[];
   plannedDueTotal: number;
   availableThisMonth: number;
+  receivableBalances: AccountBreakdown[];
+  receivableTotal: number;
 }

@@ -1,5 +1,5 @@
 import { Component, computed } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { ChartOptions } from 'chart.js';
 import { NgChartsModule } from 'ng2-charts';
 import { FilterBannerComponent } from './filter-banner.component';
@@ -12,7 +12,7 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
   selector: 'app-charts',
   standalone: true,
   imports: [CommonModule, NgChartsModule, FilterBannerComponent, ButtonComponent],
-  providers: [CurrencyPipe],
+  providers: [CurrencyPipe, DatePipe],
   template: `
     <h2 class="page-title">Charts</h2>
     <app-filter-banner title="Charts reflect active filters" />
@@ -22,6 +22,26 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
     <div *ngIf="loading()" class="card empty-state">Loading charts…</div>
     <ng-container *ngIf="!loading() && !loadError()">
       <div class="overview-interval">
+        <p class="overview-interval__label">Month</p>
+        <div class="overview-month" role="group" aria-label="Chart month">
+          <app-button
+            type="button"
+            size="sm"
+            variant="secondary"
+            [disabled]="usesSidebarDates()"
+            (click)="shiftMonth(-1)">
+            Previous
+          </app-button>
+          <p class="overview-month__label">{{ monthLabel() }}</p>
+          <app-button
+            type="button"
+            size="sm"
+            variant="secondary"
+            [disabled]="usesSidebarDates()"
+            (click)="shiftMonth(1)">
+            Next
+          </app-button>
+        </div>
         <p class="overview-interval__label">Time range</p>
         <div class="overview-interval__chips" role="group" aria-label="Chart time range">
           <app-button
@@ -78,11 +98,17 @@ export class ChartsComponent {
 
   activeFilter = this.transactionService.getActiveFilter();
   interval = this.transactionService.getOverviewInterval();
+  overviewMonth = this.transactionService.getOverviewMonth();
   summary = this.transactionService.getSummary();
   loading = this.transactionService.getLoading();
   loadError = this.transactionService.getLoadError();
 
   usesSidebarDates = computed(() => hasCustomSidebarDates(this.activeFilter()));
+
+  monthLabel = computed(() => {
+    const date = `${this.overviewMonth()}-01`;
+    return this.datePipe.transform(date, 'MMMM y') ?? date;
+  });
 
   hasExpenseData = computed(() => Object.keys(this.summary().categoryTotals).length > 0);
 
@@ -199,7 +225,8 @@ export class ChartsComponent {
 
   constructor(
     private transactionService: TransactionService,
-    private currencyPipe: CurrencyPipe
+    private currencyPipe: CurrencyPipe,
+    private datePipe: DatePipe
   ) {}
 
   setInterval(interval: OverviewInterval) {
@@ -208,6 +235,14 @@ export class ChartsComponent {
     }
 
     this.transactionService.setOverviewInterval(interval);
+  }
+
+  shiftMonth(delta: number) {
+    if (this.usesSidebarDates()) {
+      return;
+    }
+
+    this.transactionService.shiftOverviewMonth(delta);
   }
 
   private formatBucketLabel(date: string, monthly: boolean): string {

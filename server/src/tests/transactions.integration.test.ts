@@ -138,10 +138,16 @@ describe('Transaction API integration', () => {
         summary.body.accountBalances.find((row: { account: string }) => row.account === DEFAULT_CREDIT_CARD)?.amount,
         -40
       );
-      assert.equal(summary.body.creditCardDues.length, 1);
-      assert.equal(summary.body.creditCardDues[0].settlementDate, dueDate);
-      assert.equal(summary.body.creditCardDues[0].amount, 40);
       assert.equal(summary.body.currentBalance, 0);
+
+      const dueMonth = dueDate.slice(0, 7);
+      const dueSummary = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate: `${dueMonth}-01`, endDate: dueDate });
+
+      assert.equal(dueSummary.body.creditCardDues.length, 1);
+      assert.equal(dueSummary.body.creditCardDues[0].settlementDate, dueDate);
+      assert.equal(dueSummary.body.creditCardDues[0].amount, 40);
     });
 
     it('returns 400 for invalid type', async () => {

@@ -1,4 +1,4 @@
-import { toIsoDate } from './period-totals';
+import { lastDayOfMonth, toIsoDate } from './period-totals';
 
 export type OverviewInterval = 'week' | 'month' | 'year';
 
@@ -7,7 +7,26 @@ export interface DateRange {
   endDate: string;
 }
 
-export function getIntervalRange(interval: OverviewInterval, today = new Date()): DateRange {
+export function currentMonthKey(today = new Date()): string {
+  return toIsoDate(today).slice(0, 7);
+}
+
+export function shiftMonthKey(month: string, delta: number): string {
+  const [year, monthNumber] = month.split('-').map(part => Number.parseInt(part, 10));
+  const date = new Date(year, monthNumber - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function monthRange(month: string): DateRange {
+  const startDate = `${month}-01`;
+  return { startDate, endDate: lastDayOfMonth(startDate) };
+}
+
+export function getIntervalRange(
+  interval: OverviewInterval,
+  today = new Date(),
+  monthKey = currentMonthKey(today)
+): DateRange {
   const endDate = toIsoDate(today);
 
   if (interval === 'week') {
@@ -19,10 +38,7 @@ export function getIntervalRange(interval: OverviewInterval, today = new Date())
   }
 
   if (interval === 'month') {
-    return {
-      startDate: toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
-      endDate,
-    };
+    return monthRange(monthKey);
   }
 
   return {
@@ -34,9 +50,10 @@ export function getIntervalRange(interval: OverviewInterval, today = new Date())
 export function resolveOverviewRange(
   interval: OverviewInterval,
   filter: { startDate?: string; endDate?: string } | null,
-  today = new Date()
+  today = new Date(),
+  monthKey = currentMonthKey(today)
 ): DateRange {
-  const intervalRange = getIntervalRange(interval, today);
+  const intervalRange = getIntervalRange(interval, today, monthKey);
   const filterStart = filter?.startDate?.trim() ?? '';
   const filterEnd = filter?.endDate?.trim() ?? '';
 
