@@ -43,6 +43,15 @@ export function categoryIconKey(name: string): string {
   if (normalized.includes('baby')) {
     return 'baby';
   }
+  if (normalized.includes('medical') || normalized.includes('health')) {
+    return 'heart';
+  }
+  if (normalized.includes('sport')) {
+    return 'sport';
+  }
+  if (normalized.includes('education') || normalized.includes('universit') || normalized.includes('school')) {
+    return 'book';
+  }
   if (normalized.includes('car maintenance') || normalized.includes('maintenance')) {
     return 'wrench';
   }

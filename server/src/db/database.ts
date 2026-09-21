@@ -64,6 +64,7 @@ export function createDatabase(
   ensureAccountColumn(db);
   ensureAccountKindColumns(db);
   ensureSettlementColumns(db);
+  ensureTaxTables(db);
   seedMissingDefaultCategories(db);
   seedMissingDefaultAccounts(db);
   seedCreditCardAccount(db);
@@ -212,6 +213,52 @@ function ensurePlanBillingDayRange(db: Database.Database): void {
   });
 
   migrate();
+}
+
+function ensureTaxTables(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tax_filings (
+      dichiarazione_year INTEGER PRIMARY KEY,
+      income_year INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('awaiting_cu', 'cu_parsed', 'matched')),
+      cu_parsed_json TEXT,
+      overrides_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tax_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      dichiarazione_year INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('cu')),
+      original_filename TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      bytes BLOB NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (dichiarazione_year) REFERENCES tax_filings(dichiarazione_year)
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tax_matches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      dichiarazione_year INTEGER NOT NULL,
+      transaction_id INTEGER,
+      rule_id TEXT NOT NULL,
+      rigo TEXT NOT NULL,
+      codice INTEGER,
+      category TEXT NOT NULL,
+      date TEXT NOT NULL,
+      description TEXT NOT NULL,
+      gross_amount REAL NOT NULL,
+      eligible_amount REAL NOT NULL,
+      skip_reason TEXT,
+      review_flag TEXT,
+      FOREIGN KEY (dichiarazione_year) REFERENCES tax_filings(dichiarazione_year)
+    )
+  `);
 }
 
 function tableColumns(db: Database.Database, table: string): Set<string> {

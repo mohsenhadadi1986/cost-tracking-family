@@ -1,7 +1,8 @@
 import sharp from 'sharp';
-import { createWorker } from 'tesseract.js';
 import type { CategoryRepository } from '../repositories/category.repository';
 import type { ReceiptScanConfidence, ReceiptScanResponse } from '../models/receipt-scan.model';
+import type { CursorDocumentAgent } from './cursor-document-agent';
+import { extractJsonObject } from './cursor-document-agent';
 
 const MONTH_NAMES = [
   'jan',
@@ -53,6 +54,10 @@ const CATEGORY_KEYWORDS: Record<string, readonly string[]> = {
   Utilities: ['utility', 'utilities', 'acqua', 'water bill', 'rifiuti', 'tari', 'bolletta'],
   'Condominio charge': ['condominio', 'spese condominiali', 'amministratore', 'millesimi'],
   Mortgage: ['mortgage', 'mutuo', 'rata mutuo', 'prestito casa'],
+  Medical: ['farmacia', 'farmaco', 'ticket', 'visita', 'medico', 'ospedale', 'asl', 'sanitari', 'dental', 'dentist', 'clinic'],
+  Sport: ['palestra', 'piscina', 'sport', 'calcio', 'nuoto', 'tennis', 'abbonamento sportivo'],
+  Education: ['universit', 'tassa universitaria', 'master', 'afam', 'tuition'],
+  'Home reconstruction': ['ristruttur', 'bonifico parlante', 'edilizia', 'impresa edile', 'cila', 'scia', 'superbonus'],
   'Unexpected cost': ['unexpected', 'imprevisto', 'straordinario', 'urgente'],
   Entertainment: ['entertainment', 'movie', 'cinema', 'theater', 'game', 'concert', 'streaming', 'netflix', 'spotify'],
 };
@@ -315,57 +320,120 @@ async function preprocessReceiptImage(imageBuffer: Buffer): Promise<Buffer> {
 }
 
 export class ReceiptScanService {
-  constructor(private readonly categoryRepository: CategoryRepository) {}
+  constructor(
+    private readonly categoryRepository: CategoryRepository,
+    private readonly documentAgent: CursorDocumentAgent
+  ) {}
 
   async scanReceipt(imageBuffer: Buffer): Promise<ReceiptScanResponse> {
     const preparedImage = await preprocessReceiptImage(imageBuffer);
-    const { text, confidence } = await recognizeReceiptText(preparedImage);
-    const trimmedText = text.trim();
-
-    if (trimmedText.length === 0) {
-      throw new Error('Could not read text from receipt image');
-    }
-
     const expenseCategories = this.categoryRepository.findNamesByType('expense');
-    const parsed = parseReceiptText(trimmedText, expenseCategories, confidence);
+    const prompt = [
+      'Parse this receipt or invoice image into a draft expense transaction.',
+      `allowedCategories=${expenseCategories.join(',')}`,
+      'Return JSON only with keys: date, amount, description, suggestedCategory, ocrText, confidence.',
+      'date must be YYYY-MM-DD when visible. amount is the total due, not IVA or subtotal.',
+      'suggestedCategory must be one of allowedCategories or omitted.',
+      'confidence.overall is a number between 0 and 1.',
+      'Do not invent a total or date that is not on the document.',
+    ].join('\n');
 
-    return {
-      date: parsed.date,
-      amount: parsed.amount,
-      description: parsed.description,
-      suggestedCategory: parsed.suggestedCategory,
-      ocrText: parsed.ocrText,
-      confidence: parsed.confidence,
-    };
+    const raw = await this.documentAgent.complete({
+      kind: 'receipt',
+      prompt,
+      images: [{ data: preparedImage.toString('base64'), mimeType: 'image/png' }],
+    });
+
+    return normalizeReceiptScan(extractJsonObject(raw), expenseCategories);
   }
 }
 
-async function recognizeReceiptText(
-  imageBuffer: Buffer
-): Promise<{ text: string; confidence?: number }> {
-  const languages = process.env.TESSERACT_LANGS ?? 'ita+eng';
+export function normalizeReceiptScan(
+  value: Record<string, unknown>,
+  expenseCategories: string[]
+): ReceiptScanResponse {
+  const suggestedCategory = toOptionalString(value.suggestedCategory);
+  const date = toOptionalString(value.date);
+  const parsed: ReceiptScanResponse = {
+    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+    amount: toPositiveAmount(value.amount),
+    description: toOptionalString(value.description)?.slice(0, 120),
+    suggestedCategory: suggestedCategory && expenseCategories.includes(suggestedCategory)
+      ? suggestedCategory
+      : undefined,
+    ocrText: toOptionalString(value.ocrText) ? truncateOcrText(String(value.ocrText)) : undefined,
+    confidence: toConfidence(value.confidence),
+  };
 
-  try {
-    return await recognizeWithLanguages(imageBuffer, languages);
-  } catch (error) {
-    if (languages !== 'eng') {
-      return await recognizeWithLanguages(imageBuffer, 'eng');
-    }
-
-    throw error;
+  if (!parsed.date && parsed.amount == null && !parsed.description) {
+    throw new Error('Could not read text from receipt image');
   }
+
+  return parsed;
 }
 
-async function recognizeWithLanguages(
-  imageBuffer: Buffer,
-  languages: string
-): Promise<{ text: string; confidence?: number }> {
-  const worker = await createWorker(languages);
-
-  try {
-    const { data } = await worker.recognize(imageBuffer);
-    return { text: data.text, confidence: data.confidence };
-  } finally {
-    await worker.terminate();
+function toConfidence(value: unknown): ReceiptScanConfidence | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { overall: clampConfidence(value) };
   }
+
+  if (typeof value === 'string') {
+    const mapped = mapLabelConfidence(value);
+    return mapped == null ? undefined : { overall: mapped };
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    overall: toConfidenceScore(record.overall),
+    date: toConfidenceScore(record.date),
+    amount: toConfidenceScore(record.amount),
+    description: toConfidenceScore(record.description),
+    suggestedCategory: toConfidenceScore(record.suggestedCategory),
+  };
+}
+
+function toConfidenceScore(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return clampConfidence(value);
+  }
+  if (typeof value === 'string') {
+    return mapLabelConfidence(value);
+  }
+  return undefined;
+}
+
+function mapLabelConfidence(value: string): number | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'high') {
+    return 0.9;
+  }
+  if (normalized === 'medium') {
+    return 0.6;
+  }
+  if (normalized === 'low') {
+    return 0.3;
+  }
+  return undefined;
+}
+
+function clampConfidence(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function toPositiveAmount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.round(value * 100) / 100;
+  }
+  if (typeof value === 'string') {
+    return parseCurrencyAmount(value);
+  }
+  return undefined;
 }

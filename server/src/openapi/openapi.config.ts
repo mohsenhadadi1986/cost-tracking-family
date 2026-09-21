@@ -32,7 +32,8 @@ export function getSwaggerDefinition(port: number = DEFAULT_PORT) {
       { name: 'Accounts', description: 'Money places such as banks, Satispay, and PayPal' },
       { name: 'Plans', description: 'Mortgage and installment payment plans' },
       { name: 'Transactions', description: 'Transaction CRUD and summaries' },
-      { name: 'Receipts', description: 'Receipt OCR and draft field extraction' },
+      { name: 'Receipts', description: 'Receipt parsing with the Cursor SDK agent' },
+      { name: 'Tax730', description: 'Italian 730 worksheet, CU upload, and deduction matching' },
     ],
     components: {
       schemas: getOpenApiSchemas(),

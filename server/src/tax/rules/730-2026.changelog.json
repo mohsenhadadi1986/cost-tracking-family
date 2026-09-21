@@ -1,0 +1,36 @@
+{
+  "dichiarazioneYear": 2026,
+  "comparedTo": 2025,
+  "entries": [
+    {
+      "id": "school_cap",
+      "kind": "updated",
+      "ruleId": "school_non_university",
+      "summary": "School expense cap raised from €800 to €1,000 per student for spese 2025 (730/2026)."
+    },
+    {
+      "id": "mortgage_codes",
+      "kind": "updated",
+      "ruleId": "mortgage_principal",
+      "summary": "E7 mortgage interest codes split by contract year: 7 (through 2021), 48 (2022–2024), 57 (2025, including accollo/subentro/surroga/rinegoziazione)."
+    },
+    {
+      "id": "reconstruction_rates",
+      "kind": "updated",
+      "ruleId": "home_renovation",
+      "summary": "Home reconstruction 2025: 50% for abitazione principale, 36% for other properties; fossil-fuel boiler replacement excluded."
+    },
+    {
+      "id": "riordino_75k",
+      "kind": "new",
+      "ruleId": null,
+      "summary": "New riordino delle detrazioni for reddito complessivo above €75,000, on top of the existing 120,000–240,000 phase-out."
+    },
+    {
+      "id": "insurance_codes_2025",
+      "kind": "updated",
+      "ruleId": "insurance_life_or_calamity",
+      "summary": "Life/disability/LTC/calamity insurance codes split: 36/38/39/43 for contracts through 2024, 51/52/53/54 for contracts stipulated in 2025."
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { ButtonComponent } from './ui/button.component';
 import { CategorySelectComponent } from './ui/category-select.component';
 import { DateFieldComponent } from './ui/date-field.component';
 import { TransactionTypeSelectComponent } from './ui/transaction-type-select.component';
+import { Tax730Component } from './tax-730.component';
 import { Category, CategoryType } from '../models/category.model';
 import { DEFAULT_ACCOUNT } from '../constants/accounts';
 import { Account, CreateAccountRequest, UpdateAccountRequest } from '../models/account.model';
@@ -24,10 +25,13 @@ import { todayIsoDate } from '../utils/credit-card';
     ButtonComponent,
     CategorySelectComponent,
     DateFieldComponent,
-    TransactionTypeSelectComponent
+    TransactionTypeSelectComponent,
+    Tax730Component
   ],
   template: `
     <h2 class="page-title">Settings</h2>
+
+    <app-tax-730></app-tax-730>
 
     <div *ngIf="loadError()" class="card status-banner status-error">
       {{ loadError() }}

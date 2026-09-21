@@ -382,7 +382,7 @@ export function getOpenApiSchemas() {
       properties: {
         overall: {
           type: 'number',
-          description: 'Overall OCR confidence score',
+          description: 'Overall parse confidence score',
         },
         date: {
           type: 'number',
@@ -426,11 +426,24 @@ export function getOpenApiSchemas() {
         },
         ocrText: {
           type: 'string',
-          description: 'Truncated OCR text to help the user correct missed fields',
+          description: 'Truncated document text to help the user correct missed fields',
         },
         confidence: {
           $ref: '#/components/schemas/ReceiptScanConfidence',
         },
+      },
+    },
+    Tax730Filing: {
+      type: 'object',
+      required: ['dichiarazioneYear', 'incomeYear', 'hasCu', 'status'],
+      properties: {
+        dichiarazioneYear: { type: 'integer' },
+        incomeYear: { type: 'integer' },
+        officialForm: { type: 'string' },
+        officialCuLabel: { type: 'string' },
+        status: { type: 'string', enum: ['awaiting_cu', 'cu_parsed', 'matched'] },
+        hasCu: { type: 'boolean' },
+        rulesVersion: { type: 'string' },
       },
     },
   };

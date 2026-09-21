@@ -79,6 +79,18 @@ import { GlyphSet, glyphKey } from '../../utils/glyph';
           <path d="M7 2v20"/>
           <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
         </svg>
+        <svg *ngSwitchCase="'heart'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20s-7-4.4-9-9.2C1.4 7.3 3.6 4 7 4c2 0 3.2 1.2 5 3 1.8-1.8 3-3 5-3 3.4 0 5.6 3.3 4 6.8C19 15.6 12 20 12 20z"/>
+        </svg>
+        <svg *ngSwitchCase="'sport'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3.6 9h16.8M3.6 15h16.8"/>
+          <path d="M12 3a14 14 0 0 1 0 18A14 14 0 0 1 12 3z"/>
+        </svg>
+        <svg *ngSwitchCase="'book'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 0-2 2z"/>
+          <path d="M6 3v18"/>
+        </svg>
         <svg *ngSwitchCase="'baby'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4"/>
           <path d="M8 14s1.5 2 4 2 4-2 4-2"/>

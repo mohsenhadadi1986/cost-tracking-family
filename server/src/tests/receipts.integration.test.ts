@@ -5,9 +5,8 @@ import os from 'os';
 import path from 'path';
 import request from 'supertest';
 import { createApp } from '../app';
+import { createOfflineDocumentAgent } from '../services/offline-document-agent';
 import type Database from 'better-sqlite3';
-
-process.env.TESSERACT_LANGS = process.env.TESSERACT_LANGS ?? 'eng';
 
 const openDatabases: Database.Database[] = [];
 const dbPaths: string[] = [];
@@ -20,7 +19,7 @@ function tempDbPath(): string {
 function createTestApp(seed = false) {
   const dbPath = tempDbPath();
   dbPaths.push(dbPath);
-  const context = createApp(dbPath, { seed });
+  const context = createApp(dbPath, { seed, documentAgent: createOfflineDocumentAgent() });
   openDatabases.push(context.db);
   return context;
 }

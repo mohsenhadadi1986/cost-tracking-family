@@ -1,5 +1,5 @@
-# Express API + SQLite (better-sqlite3) + tesseract.js OCR
-FROM node:18-bookworm-slim AS build
+# Express API + SQLite (better-sqlite3) + Cursor SDK document parsing
+FROM node:22-bookworm-slim AS build
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
@@ -15,7 +15,7 @@ COPY src ./src
 RUN npm run build \
   && npm prune --omit=dev
 
-FROM node:18-bookworm-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 

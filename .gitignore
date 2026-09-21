@@ -5,4 +5,5 @@ server/dist
 server/data
 server/*.traineddata
 server/node_modules
+server/.env
 deploy/.env

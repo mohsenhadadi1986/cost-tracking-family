@@ -14,6 +14,10 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   'Utilities',
   'Condominio charge',
   'Mortgage',
+  'Medical',
+  'Sport',
+  'Education',
+  'Home reconstruction',
   'Unexpected cost',
   'Entertainment',
 ] as const;

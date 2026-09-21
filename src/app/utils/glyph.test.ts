@@ -16,7 +16,9 @@ describe('glyph keys', () => {
   });
 
   it('maps categories and tabs to icons', () => {
-    assert.equal(categoryIconKey('Food'), 'food');
+    assert.equal(categoryIconKey('Medical'), 'heart');
+    assert.equal(categoryIconKey('Sport'), 'sport');
+    assert.equal(categoryIconKey('Education'), 'book');
     assert.equal(categoryIconKey('Electricity'), 'zap');
     assert.equal(categoryIconKey('Internet Home'), 'wifi');
     assert.equal(placeIconKey('Add place'), 'plus');

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
+import { MissingCursorApiKeyError } from '../cursor-api-key';
 import type { ReceiptScanService } from '../services/receipt-scan.service';
 import {
   ALLOWED_RECEIPT_MIME_TYPES,
@@ -44,8 +45,8 @@ export function createReceiptsRouter(receiptScanService: ReceiptScanService): Ro
    *       - Receipts
    *     summary: Scan a receipt image
    *     description: |
-   *       Accepts a receipt image, runs OCR server-side, and returns draft transaction
-   *       fields for client pre-fill. Does not persist transactions or store images.
+   *       Accepts a receipt image, parses it with a Cursor SDK agent, and returns draft
+   *       transaction fields for client pre-fill. Does not persist transactions or store images.
    *     requestBody:
    *       required: true
    *       content:
@@ -80,6 +81,10 @@ export function createReceiptsRouter(receiptScanService: ReceiptScanService): Ro
       const result = await receiptScanService.scanReceipt(file.buffer);
       res.status(200).json(result);
     } catch (error) {
+      if (error instanceof MissingCursorApiKeyError) {
+        res.status(503).json({ error: error.message });
+        return;
+      }
       res.status(400).json({
         error: error instanceof Error ? error.message : 'Invalid receipt scan request',
       });
