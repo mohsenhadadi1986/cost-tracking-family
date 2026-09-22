@@ -1,4 +1,4 @@
-import { TRANSFER_CATEGORY, TransactionType } from '../models/transaction.model';
+import { TRANSFER_CATEGORY, Transaction, TransactionType } from '../models/transaction.model';
 import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
 
