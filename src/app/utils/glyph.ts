@@ -103,6 +103,9 @@ export function categoryIconKey(name: string): string {
   if (normalized.includes('invest')) {
     return 'trend';
   }
+  if (normalized === 'transfer') {
+    return 'swap';
+  }
 
   return 'tag';
 }

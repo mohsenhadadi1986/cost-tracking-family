@@ -53,7 +53,7 @@ export function createTransactionsRouter(
    *         name: type
    *         schema:
    *           type: string
-   *           enum: [expense, income]
+   *           enum: [expense, income, transfer]
    *         description: Filter by transaction type
    *     responses:
    *       200:
@@ -127,7 +127,7 @@ export function createTransactionsRouter(
    *               invalidType:
    *                 summary: Invalid type
    *                 value:
-   *                   error: type must be either expense or income
+   *                   error: type must be expense, income, or transfer
    *               invalidAmount:
    *                 summary: Invalid amount
    *                 value:
@@ -189,7 +189,7 @@ export function createTransactionsRouter(
    *         name: type
    *         schema:
    *           type: string
-   *           enum: [expense, income]
+   *           enum: [expense, income, transfer]
    *         description: Filter by transaction type
    *     responses:
    *       200:

@@ -41,9 +41,13 @@ export function createDatabase(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL,
       category TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('expense', 'income')),
+      type TEXT NOT NULL CHECK (type IN ('expense', 'income', 'transfer')),
       amount REAL NOT NULL CHECK (amount > 0),
-      description TEXT NOT NULL
+      description TEXT NOT NULL,
+      account TEXT NOT NULL DEFAULT '${DEFAULT_ACCOUNT}',
+      settlement_date TEXT,
+      settlement_account TEXT,
+      to_account TEXT
     )
   `);
 
@@ -64,6 +68,7 @@ export function createDatabase(
   ensureAccountColumn(db);
   ensureAccountKindColumns(db);
   ensureSettlementColumns(db);
+  ensureTransferSupport(db);
   ensureTaxTables(db);
   seedMissingDefaultCategories(db);
   seedMissingDefaultAccounts(db);
@@ -160,6 +165,61 @@ function ensureAccountKindColumns(db: Database.Database): void {
   if (!columns.has('settlement_account')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN settlement_account TEXT`);
   }
+}
+
+function ensureTransferSupport(db: Database.Database): void {
+  const table = db.prepare(`
+    SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'transactions'
+  `).get() as { sql: string } | undefined;
+  const columns = tableColumns(db, 'transactions');
+  const allowsTransfer = Boolean(table?.sql && /'transfer'/i.test(table.sql));
+
+  if (allowsTransfer && columns.has('to_account')) {
+    return;
+  }
+
+  const migrate = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE transactions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('expense', 'income', 'transfer')),
+        amount REAL NOT NULL CHECK (amount > 0),
+        description TEXT NOT NULL,
+        account TEXT NOT NULL DEFAULT '${DEFAULT_ACCOUNT}',
+        settlement_date TEXT,
+        settlement_account TEXT,
+        to_account TEXT
+      )
+    `);
+    db.exec(`
+      INSERT INTO transactions_new (
+        id, date, category, type, amount, description, account, settlement_date, settlement_account, to_account
+      )
+      SELECT
+        id,
+        date,
+        category,
+        type,
+        amount,
+        description,
+        COALESCE(account, '${DEFAULT_ACCOUNT}'),
+        settlement_date,
+        settlement_account,
+        NULL
+      FROM transactions
+    `);
+    db.exec(`DROP TABLE transactions`);
+    db.exec(`ALTER TABLE transactions_new RENAME TO transactions`);
+    db.exec(`DELETE FROM sqlite_sequence WHERE name IN ('transactions', 'transactions_new')`);
+    db.exec(`
+      INSERT INTO sqlite_sequence (name, seq)
+      SELECT 'transactions', IFNULL(MAX(id), 0) FROM transactions
+    `);
+  });
+
+  migrate();
 }
 
 function ensureSettlementColumns(db: Database.Database): void {

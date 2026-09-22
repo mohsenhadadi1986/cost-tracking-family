@@ -721,6 +721,11 @@ tbody tr:last-child td {
   color: var(--color-income);
 }
 
+.type-badge.transfer {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
 .table-settlement {
   margin: 2px 0 0;
   font-size: var(--font-size-sm);
@@ -734,6 +739,11 @@ tbody tr:last-child td {
 
 .amount-expense {
   color: var(--color-expense);
+  font-weight: var(--font-weight-semibold);
+}
+
+.amount-transfer {
+  color: var(--color-primary);
   font-weight: var(--font-weight-semibold);
 }
 

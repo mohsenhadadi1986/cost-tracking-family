@@ -25,6 +25,7 @@ describe('glyph keys', () => {
     assert.equal(categoryIconKey('Add category'), 'plus');
     assert.equal(categoryIconKey('Add plan'), 'plus');
     assert.equal(categoryIconKey('Lend Mohammad'), 'users');
+    assert.equal(categoryIconKey('Transfer'), 'swap');
     assert.equal(tabIconKey('Insert Data'), 'plus');
     assert.equal(tabIconKey('Visualization'), 'layout');
     assert.equal(tabIconKey('Charts'), 'chart');

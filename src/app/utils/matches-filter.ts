@@ -7,7 +7,7 @@ import { TransactionFilter } from '../models/transaction-filter.model';
  * Edge cases:
  * - Empty or omitted date bounds are treated as no limit (inclusive when set).
  * - An empty category list matches all categories.
- * - `type: 'all'` matches both expense and income.
+ * - `type: 'all'` matches expense, income, and transfer.
  */
 export function matchesFilter(transaction: Transaction, filter: TransactionFilter): boolean {
   if (filter.startDate && transaction.date < filter.startDate) {

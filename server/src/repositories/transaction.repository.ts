@@ -6,17 +6,23 @@ import type { TransactionFilterCriteria } from '../validation/transaction-filter
 import { creditCardSettlementDate } from '../utils/credit-card';
 import {
   CreateTransactionInput,
+  normalizeTransactionWrite,
   validateTransactionInput,
 } from '../validation/transaction.validation';
+
+const TRANSACTION_COLUMNS = `
+  id, date, category, type, amount, description, account, to_account, settlement_date, settlement_account
+`;
 
 type TransactionRow = {
   id: number;
   date: string;
   category: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'transfer';
   amount: number;
   description: string;
   account: string;
+  to_account: string | null;
   settlement_date: string;
   settlement_account: string;
 };
@@ -29,22 +35,24 @@ export class TransactionRepository {
   ) {}
 
   create(input: CreateTransactionInput): Transaction {
-    const normalized = {
-      ...input,
-      account: typeof input.account === 'string' ? input.account.trim() : input.account,
-    };
+    const normalized = normalizeTransactionWrite(input);
     validateTransactionInput(normalized, this.categoryRepository, this.accountRepository);
 
     const settlement = resolveSettlement(normalized, this.accountRepository);
 
     const row = this.db
       .prepare(`
-        INSERT INTO transactions (date, category, type, amount, description, account, settlement_date, settlement_account)
-        VALUES (@date, @category, @type, @amount, @description, @account, @settlementDate, @settlementAccount)
-        RETURNING id, date, category, type, amount, description, account, settlement_date, settlement_account
+        INSERT INTO transactions (
+          date, category, type, amount, description, account, to_account, settlement_date, settlement_account
+        )
+        VALUES (
+          @date, @category, @type, @amount, @description, @account, @toAccount, @settlementDate, @settlementAccount
+        )
+        RETURNING ${TRANSACTION_COLUMNS}
       `)
       .get({
         ...normalized,
+        toAccount: normalized.toAccount || null,
         settlementDate: settlement.settlementDate,
         settlementAccount: settlement.settlementAccount,
       }) as TransactionRow;
@@ -55,7 +63,7 @@ export class TransactionRepository {
   findById(id: number): Transaction | undefined {
     const row = this.db
       .prepare(`
-        SELECT id, date, category, type, amount, description, account, settlement_date, settlement_account
+        SELECT ${TRANSACTION_COLUMNS}
         FROM transactions
         WHERE id = @id
       `)
@@ -69,10 +77,7 @@ export class TransactionRepository {
       return undefined;
     }
 
-    const normalized = {
-      ...input,
-      account: typeof input.account === 'string' ? input.account.trim() : input.account,
-    };
+    const normalized = normalizeTransactionWrite(input);
     validateTransactionInput(normalized, this.categoryRepository, this.accountRepository);
     const settlement = resolveSettlement(normalized, this.accountRepository);
 
@@ -85,14 +90,16 @@ export class TransactionRepository {
             amount = @amount,
             description = @description,
             account = @account,
+            to_account = @toAccount,
             settlement_date = @settlementDate,
             settlement_account = @settlementAccount
         WHERE id = @id
-        RETURNING id, date, category, type, amount, description, account, settlement_date, settlement_account
+        RETURNING ${TRANSACTION_COLUMNS}
       `)
       .get({
         id,
         ...normalized,
+        toAccount: normalized.toAccount || null,
         settlementDate: settlement.settlementDate,
         settlementAccount: settlement.settlementAccount,
       }) as TransactionRow | undefined;
@@ -143,7 +150,7 @@ export class TransactionRepository {
 
     const rows = this.db
       .prepare(`
-        SELECT id, date, category, type, amount, description, account, settlement_date, settlement_account
+        SELECT ${TRANSACTION_COLUMNS}
         FROM transactions
         ${whereClause}
         ORDER BY date DESC, id DESC
@@ -181,6 +188,7 @@ function mapTransaction(row: TransactionRow): Transaction {
     amount: row.amount,
     description: row.description,
     account: row.account,
+    toAccount: row.to_account,
     settlementDate: row.settlement_date ?? row.date,
     settlementAccount: row.settlement_account ?? row.account,
   };

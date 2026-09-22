@@ -1,6 +1,6 @@
 const transactionTypeSchema = {
   type: 'string',
-  enum: ['expense', 'income'],
+  enum: ['expense', 'income', 'transfer'],
 };
 
 const transactionCategorySchema = {
@@ -32,7 +32,12 @@ const createTransactionRequestProperties = {
   },
   account: {
     type: 'string',
-    description: 'Place used for the purchase or deposit (bank, Satispay, PayPal, or credit card)',
+    description: 'Place the money is spent, received, or sent from',
+  },
+  toAccount: {
+    type: 'string',
+    nullable: true,
+    description: 'Destination place when type is transfer. Null for income and expense.',
   },
 };
 
@@ -50,7 +55,7 @@ export function getOpenApiSchemas() {
     },
     Transaction: {
       type: 'object',
-      required: ['id', 'date', 'category', 'type', 'amount', 'description', 'account', 'settlementDate', 'settlementAccount'],
+      required: ['id', 'date', 'category', 'type', 'amount', 'description', 'account', 'toAccount', 'settlementDate', 'settlementAccount'],
       properties: {
         id: { type: 'integer' },
         ...createTransactionRequestProperties,

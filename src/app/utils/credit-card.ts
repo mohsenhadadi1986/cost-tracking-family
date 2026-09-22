@@ -20,7 +20,7 @@ export function todayIsoDate(now = new Date()): string {
 }
 
 export function resolveTransactionSettlement(
-  input: { date: string; type: 'income' | 'expense'; account: string },
+  input: { date: string; type: 'income' | 'expense' | 'transfer'; account: string },
   accounts: Array<{ name: string; kind?: 'wallet' | 'credit'; billingDay?: number | null; settlementAccount?: string | null }>
 ): { settlementDate: string; settlementAccount: string } {
   const place = accounts.find(account => account.name === input.account);

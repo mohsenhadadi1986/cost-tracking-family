@@ -24,8 +24,8 @@ function daysAgo(days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-type MockTransaction = Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount'> &
-  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount'>>;
+type MockTransaction = Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount' | 'toAccount'> &
+  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount'>>;
 
 const cardPurchaseDate = daysAgo(2);
 

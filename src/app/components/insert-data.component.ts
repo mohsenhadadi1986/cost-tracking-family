@@ -12,6 +12,7 @@ import { ReceiptScanResponse } from '../models/receipt-scan.model';
 import { ReceiptScanService } from '../services/receipt-scan.service';
 import { TransactionService } from '../services/transaction.service';
 import { DEFAULT_ACCOUNT } from '../constants/accounts';
+import { TRANSFER_CATEGORY } from '../models/transaction.model';
 import { creditCardSettlementDate } from '../utils/credit-card';
 
 @Component({
@@ -43,7 +44,7 @@ import { creditCardSettlementDate } from '../utils/credit-card';
     <div *ngIf="submitError()" class="card status-banner status-error form-card">
       {{ submitError() }}
     </div>
-    <div class="card form-card receipt-scan-card">
+    <div class="card form-card receipt-scan-card" *ngIf="newTransaction.type !== 'transfer'">
       <input
         #receiptInput
         type="file"
@@ -88,9 +89,9 @@ import { creditCardSettlementDate } from '../utils/credit-card';
 
       <div class="form-group">
         <app-category-select
-          label="Place"
-          placeholder="Where the money is"
-          [options]="accountOptions()"
+          [label]="newTransaction.type === 'transfer' ? 'From' : 'Place'"
+          [placeholder]="newTransaction.type === 'transfer' ? 'Money leaves this place' : 'Where the money is'"
+          [options]="placeOptions()"
           [(ngModel)]="newTransaction.account"
           name="account"
           required
@@ -98,9 +99,26 @@ import { creditCardSettlementDate } from '../utils/credit-card';
           [disabled]="formDisabled() || accountsLoading()">
         </app-category-select>
         <p *ngIf="settlementHint()" class="form-hint">{{ settlementHint() }}</p>
+        <p *ngIf="newTransaction.type === 'transfer'" class="form-hint">
+          Moves cash between places. It is not income or an expense.
+        </p>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" *ngIf="newTransaction.type === 'transfer'">
+        <app-category-select
+          label="To"
+          placeholder="Money arrives here"
+          [options]="placeOptions()"
+          [(ngModel)]="newTransaction.toAccount"
+          name="toAccount"
+          required
+          iconSet="place"
+          [disabled]="formDisabled() || accountsLoading()">
+        </app-category-select>
+        <p *ngIf="samePlace()" class="form-hint">Choose a different place.</p>
+      </div>
+
+      <div class="form-group" *ngIf="newTransaction.type !== 'transfer'">
         <app-category-select
           label="Category"
           [options]="categoryOptions()"
@@ -118,10 +136,16 @@ import { creditCardSettlementDate } from '../utils/credit-card';
 
       <div class="form-group">
         <label>Description</label>
-        <input type="text" [(ngModel)]="newTransaction.description" name="description" required [disabled]="formDisabled()">
+        <input
+          type="text"
+          [(ngModel)]="newTransaction.description"
+          name="description"
+          required
+          [placeholder]="newTransaction.type === 'transfer' ? 'For example, moved savings' : ''"
+          [disabled]="formDisabled()">
       </div>
 
-      <app-button type="submit" variant="primary" [disabled]="formDisabled()">
+      <app-button type="submit" variant="primary" [disabled]="formDisabled() || samePlace()">
         {{ submitting() ? 'Adding…' : 'Add Transaction' }}
       </app-button>
     </form>
@@ -171,6 +195,17 @@ export class InsertDataComponent implements OnDestroy {
 
   accountOptions = computed(() => this.accountService.getAccounts()().map(account => account.name));
 
+  walletOptions = computed(() =>
+    this.accountService
+      .getAccounts()()
+      .filter(account => account.kind !== 'credit')
+      .map(account => account.name)
+  );
+
+  placeOptions = computed(() =>
+    this.transactionType() === 'transfer' ? this.walletOptions() : this.accountOptions()
+  );
+
   formDisabled = computed(() => this.submitting() || this.scanning());
 
   categoriesLoading = this.categoryService.getLoading();
@@ -190,13 +225,15 @@ export class InsertDataComponent implements OnDestroy {
     amount: number;
     description: string;
     account: string;
+    toAccount: string;
   } = {
     date: new Date().toISOString().split('T')[0],
     category: '',
     type: 'expense',
     amount: 0,
     description: '',
-    account: ''
+    account: '',
+    toAccount: ''
   };
 
   constructor(
@@ -207,13 +244,18 @@ export class InsertDataComponent implements OnDestroy {
     private datePipe: DatePipe
   ) {
     effect(() => {
-      const names = this.accountOptions();
+      const type = this.transactionType();
+      const names = type === 'transfer' ? this.walletOptions() : this.accountOptions();
       if (names.length === 0) {
         return;
       }
 
       if (!this.newTransaction.account || !names.includes(this.newTransaction.account)) {
         this.newTransaction.account = names.includes(DEFAULT_ACCOUNT) ? DEFAULT_ACCOUNT : names[0];
+      }
+
+      if (type === 'transfer') {
+        this.ensureTransferDestination(names);
       }
     });
   }
@@ -244,12 +286,31 @@ export class InsertDataComponent implements OnDestroy {
     this.newTransaction.type = type;
     this.transactionType.set(type);
 
+    if (type === 'transfer') {
+      this.newTransaction.category = TRANSFER_CATEGORY;
+      const wallets = this.walletOptions();
+      if (!wallets.includes(this.newTransaction.account)) {
+        this.newTransaction.account = wallets.includes(DEFAULT_ACCOUNT) ? DEFAULT_ACCOUNT : (wallets[0] ?? '');
+      }
+      this.ensureTransferDestination(wallets);
+      return;
+    }
+
+    this.newTransaction.toAccount = '';
     if (
-      this.newTransaction.category &&
-      !this.categoryOptions().includes(this.newTransaction.category)
+      this.newTransaction.category === TRANSFER_CATEGORY ||
+      (this.newTransaction.category && !this.categoryOptions().includes(this.newTransaction.category))
     ) {
       this.newTransaction.category = '';
     }
+  }
+
+  samePlace(): boolean {
+    return (
+      this.newTransaction.type === 'transfer' &&
+      this.newTransaction.account !== '' &&
+      this.newTransaction.account === this.newTransaction.toAccount
+    );
   }
 
   settlementHint(): string | null {
@@ -275,7 +336,20 @@ export class InsertDataComponent implements OnDestroy {
   }
 
   onSubmit() {
-    this.transactionService.addTransaction(this.newTransaction).subscribe({
+    if (this.samePlace()) {
+      return;
+    }
+
+    const type = this.newTransaction.type;
+    this.transactionService.addTransaction({
+      date: this.newTransaction.date,
+      category: type === 'transfer' ? TRANSFER_CATEGORY : this.newTransaction.category,
+      type,
+      amount: Number(this.newTransaction.amount),
+      description: this.newTransaction.description,
+      account: this.newTransaction.account,
+      toAccount: type === 'transfer' ? this.newTransaction.toAccount : null,
+    }).subscribe({
       next: () => {
         this.newTransaction = {
           date: new Date().toISOString().split('T')[0],
@@ -283,13 +357,24 @@ export class InsertDataComponent implements OnDestroy {
           type: 'expense',
           amount: 0,
           description: '',
-          account: this.newTransaction.account
+          account: this.newTransaction.account,
+          toAccount: ''
         };
         this.transactionType.set('expense');
         this.clearReceiptPreview();
         this.scanHint.set(null);
       }
     });
+  }
+
+  private ensureTransferDestination(wallets: string[]) {
+    if (
+      !this.newTransaction.toAccount ||
+      this.newTransaction.toAccount === this.newTransaction.account ||
+      !wallets.includes(this.newTransaction.toAccount)
+    ) {
+      this.newTransaction.toAccount = wallets.find(name => name !== this.newTransaction.account) ?? '';
+    }
   }
 
   private setReceiptPreview(file: File) {

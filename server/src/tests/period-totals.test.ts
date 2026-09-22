@@ -105,6 +105,45 @@ describe('period-totals', () => {
     assert.equal(afterDue.availableThisMonth, 60);
   });
 
+  it('moves money between places without changing income or expenses', () => {
+    const transactions = [
+      {
+        date: '2026-09-01',
+        category: 'Salary',
+        type: 'income' as const,
+        amount: 100,
+        account: 'Post Bank',
+      },
+      {
+        date: '2026-09-02',
+        category: 'Transfer',
+        type: 'transfer' as const,
+        amount: 40,
+        account: 'Post Bank',
+        toAccount: 'Revolut',
+      },
+    ];
+
+    const before = buildSummary(transactions, '2026-09-01', '2026-09-30', {
+      asOfDate: '2026-09-01',
+    });
+    assert.equal(before.totalIncome, 100);
+    assert.equal(before.totalExpense, 0);
+    assert.equal(before.accountBalances.find(row => row.account === 'Post Bank')?.amount, 100);
+    assert.equal(before.accountBalances.find(row => row.account === 'Revolut')?.amount, 0);
+
+    const after = buildSummary(transactions, '2026-09-01', '2026-09-30', {
+      asOfDate: '2026-09-02',
+    });
+    assert.equal(after.totalIncome, 100);
+    assert.equal(after.totalExpense, 0);
+    assert.equal(after.netBalance, 100);
+    assert.equal(after.currentBalance, 100);
+    assert.equal(after.accountBalances.find(row => row.account === 'Post Bank')?.amount, 60);
+    assert.equal(after.accountBalances.find(row => row.account === 'Revolut')?.amount, 40);
+    assert.equal(after.categoryTotals['Transfer'], undefined);
+  });
+
   it('keeps lent money out of cash on hand', () => {
     const transactions = [
       {

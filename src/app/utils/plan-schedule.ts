@@ -11,7 +11,7 @@ export type PlanSchedule = {
 
 export type PlanExpense = {
   date: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'transfer';
   amount: number;
   account: string;
 };

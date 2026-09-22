@@ -11,7 +11,7 @@ import { Account } from '../models/account.model';
 import { AccountService } from '../services/account.service';
 import { CategoryService } from '../services/category.service';
 import { TransactionService } from '../services/transaction.service';
-import { Transaction } from '../models/transaction.model';
+import { TRANSFER_CATEGORY, Transaction } from '../models/transaction.model';
 import { creditCardSettlementDate } from '../utils/credit-card';
 import {
   TABLE_PAGE_SIZES,
@@ -66,9 +66,9 @@ import {
       </div>
       <div class="form-group">
         <app-category-select
-          label="Place"
-          placeholder="Where the money is"
-          [options]="accountOptions()"
+          [label]="editForm.type === 'transfer' ? 'From' : 'Place'"
+          [placeholder]="editForm.type === 'transfer' ? 'Money leaves this place' : 'Where the money is'"
+          [options]="placeOptions()"
           [(ngModel)]="editForm.account"
           name="editAccount"
           required
@@ -76,8 +76,24 @@ import {
           [disabled]="submitting()">
         </app-category-select>
         <p *ngIf="settlementHint()" class="form-hint">{{ settlementHint() }}</p>
+        <p *ngIf="editForm.type === 'transfer'" class="form-hint">
+          Moves cash between places. It is not income or an expense.
+        </p>
       </div>
-      <div class="form-group">
+      <div class="form-group" *ngIf="editForm.type === 'transfer'">
+        <app-category-select
+          label="To"
+          placeholder="Money arrives here"
+          [options]="placeOptions()"
+          [(ngModel)]="editForm.toAccount"
+          name="editToAccount"
+          required
+          iconSet="place"
+          [disabled]="submitting()">
+        </app-category-select>
+        <p *ngIf="samePlace()" class="form-hint">Choose a different place.</p>
+      </div>
+      <div class="form-group" *ngIf="editForm.type !== 'transfer'">
         <app-category-select
           label="Category"
           [options]="categoryOptions()"
@@ -221,10 +237,23 @@ import {
                 [class.table-row--editing]="editing()?.id === transaction.id">
                 <td data-label="Date">{{transaction.date | date:'mediumDate'}}</td>
                 <td data-label="Place">
-                  <span class="name-with-icon">
-                    <app-glyph set="place" [name]="transaction.account"></app-glyph>
-                    {{transaction.account}}
+                  <span class="table-transfer" *ngIf="transaction.type === 'transfer'; else singlePlace">
+                    <span class="name-with-icon">
+                      <app-glyph set="place" [name]="transaction.account"></app-glyph>
+                      {{ transaction.account }}
+                    </span>
+                    <span class="table-transfer__arrow" aria-hidden="true">→</span>
+                    <span class="name-with-icon">
+                      <app-glyph set="place" [name]="transaction.toAccount || ''"></app-glyph>
+                      {{ transaction.toAccount }}
+                    </span>
                   </span>
+                  <ng-template #singlePlace>
+                    <span class="name-with-icon">
+                      <app-glyph set="place" [name]="transaction.account"></app-glyph>
+                      {{transaction.account}}
+                    </span>
+                  </ng-template>
                   <p *ngIf="showsSettlement(transaction)" class="table-settlement">
                     Charged from {{ transaction.settlementAccount }} on {{ transaction.settlementDate | date:'mediumDate' }}
                   </p>
@@ -236,11 +265,19 @@ import {
                   </span>
                 </td>
                 <td data-label="Type">
-                  <span class="type-badge" [class.income]="transaction.type === 'income'" [class.expense]="transaction.type === 'expense'">
+                  <span
+                    class="type-badge"
+                    [class.income]="transaction.type === 'income'"
+                    [class.expense]="transaction.type === 'expense'"
+                    [class.transfer]="transaction.type === 'transfer'">
                     {{transaction.type}}
                   </span>
                 </td>
-                <td data-label="Amount" [class.amount-income]="transaction.type === 'income'" [class.amount-expense]="transaction.type === 'expense'">
+                <td
+                  data-label="Amount"
+                  [class.amount-income]="transaction.type === 'income'"
+                  [class.amount-expense]="transaction.type === 'expense'"
+                  [class.amount-transfer]="transaction.type === 'transfer'">
                   {{transaction.amount | currency}}
                 </td>
                 <td data-label="Description">{{transaction.description}}</td>
@@ -329,6 +366,17 @@ import {
       color: var(--color-muted);
     }
 
+    .table-transfer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .table-transfer__arrow {
+      color: var(--color-muted);
+    }
+
     .settings-actions {
       display: flex;
       flex-wrap: wrap;
@@ -370,9 +418,21 @@ export class TableComponent {
     amount: 0,
     description: '',
     account: '',
+    toAccount: '',
   };
 
   accountOptions = computed(() => this.accountService.getAccounts()().map(account => account.name));
+
+  walletOptions = computed(() =>
+    this.accountService
+      .getAccounts()()
+      .filter(account => account.kind !== 'credit')
+      .map(account => account.name)
+  );
+
+  placeOptions = computed(() =>
+    this.editType() === 'transfer' ? this.walletOptions() : this.accountOptions()
+  );
 
   categoryOptions = computed(() =>
     this.categoryService
@@ -408,7 +468,7 @@ export class TableComponent {
     for (const transaction of rows) {
       if (transaction.type === 'income') {
         totalIncome += transaction.amount;
-      } else {
+      } else if (transaction.type === 'expense') {
         totalExpense += transaction.amount;
       }
     }
@@ -447,6 +507,7 @@ export class TableComponent {
       amount: transaction.amount,
       description: transaction.description,
       account: transaction.account,
+      toAccount: transaction.toAccount ?? '',
     };
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -459,19 +520,46 @@ export class TableComponent {
   onEditTypeChange(type: TransactionEntryType) {
     this.editForm.type = type;
     this.editType.set(type);
-    if (this.editForm.category && !this.categoryOptions().includes(this.editForm.category)) {
+    if (type === 'transfer') {
+      this.editForm.category = TRANSFER_CATEGORY;
+      const wallets = this.walletOptions();
+      if (!wallets.includes(this.editForm.account)) {
+        this.editForm.account = wallets[0] ?? '';
+      }
+      if (!this.editForm.toAccount || this.editForm.toAccount === this.editForm.account || !wallets.includes(this.editForm.toAccount)) {
+        this.editForm.toAccount = wallets.find(name => name !== this.editForm.account) ?? '';
+      }
+      return;
+    }
+
+    this.editForm.toAccount = '';
+    if (this.editForm.category === TRANSFER_CATEGORY || !this.categoryOptions().includes(this.editForm.category)) {
       this.editForm.category = '';
     }
   }
 
-  canSaveEdit(): boolean {
+  samePlace(): boolean {
     return (
-      this.editForm.date.trim() !== ''
-      && this.editForm.account.trim() !== ''
-      && this.editForm.category.trim() !== ''
-      && this.editForm.description.trim() !== ''
-      && this.editForm.amount > 0
+      this.editForm.type === 'transfer' &&
+      this.editForm.account !== '' &&
+      this.editForm.account === this.editForm.toAccount
     );
+  }
+
+  canSaveEdit(): boolean {
+    if (this.editForm.date.trim() === '' || this.editForm.description.trim() === '' || this.editForm.amount <= 0) {
+      return false;
+    }
+
+    if (this.editForm.type === 'transfer') {
+      return (
+        this.editForm.account.trim() !== '' &&
+        this.editForm.toAccount.trim() !== '' &&
+        !this.samePlace()
+      );
+    }
+
+    return this.editForm.account.trim() !== '' && this.editForm.category.trim() !== '';
   }
 
   saveEdit() {
@@ -482,11 +570,12 @@ export class TableComponent {
 
     this.transactionService.updateTransaction(current.id, {
       date: this.editForm.date,
-      category: this.editForm.category,
+      category: this.editForm.type === 'transfer' ? TRANSFER_CATEGORY : this.editForm.category,
       type: this.editForm.type,
       amount: Number(this.editForm.amount),
       description: this.editForm.description.trim(),
       account: this.editForm.account,
+      toAccount: this.editForm.type === 'transfer' ? this.editForm.toAccount : null,
     }).subscribe({
       next: () => this.cancelEdit()
     });

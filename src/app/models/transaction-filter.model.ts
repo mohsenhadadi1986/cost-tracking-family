@@ -1,4 +1,4 @@
-export type TransactionTypeFilter = 'all' | 'expense' | 'income';
+export type TransactionTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
 
 export interface TransactionFilter {
   startDate: string;

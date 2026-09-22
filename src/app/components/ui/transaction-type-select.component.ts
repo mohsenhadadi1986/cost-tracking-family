@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { ButtonComponent } from './button.component';
 
-export type TransactionEntryType = 'expense' | 'income';
+export type TransactionEntryType = 'expense' | 'income' | 'transfer';
 
 let nextTransactionTypeSelectId = 0;
 
@@ -75,7 +75,8 @@ export class TransactionTypeSelectComponent implements ControlValueAccessor {
 
   readonly options: { value: TransactionEntryType; label: string }[] = [
     { value: 'expense', label: 'Expense' },
-    { value: 'income', label: 'Income' }
+    { value: 'income', label: 'Income' },
+    { value: 'transfer', label: 'Transfer' }
   ];
 
   value: TransactionEntryType = 'expense';
@@ -91,7 +92,7 @@ export class TransactionTypeSelectComponent implements ControlValueAccessor {
   }
 
   writeValue(value: TransactionEntryType | null): void {
-    this.value = value === 'income' ? 'income' : 'expense';
+    this.value = value === 'income' || value === 'transfer' ? value : 'expense';
   }
 
   registerOnChange(fn: (value: TransactionEntryType) => void): void {

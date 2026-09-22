@@ -9,10 +9,10 @@ import {
 } from './table-view';
 
 const rows: Transaction[] = [
-  { id: 1, date: '2026-09-01', category: 'Food', type: 'expense', amount: 10, description: 'Groceries', account: 'Satispay', settlementDate: '2026-09-01', settlementAccount: 'Satispay' },
-  { id: 2, date: '2026-09-03', category: 'Fuel', type: 'expense', amount: 40, description: 'Shell station', account: 'Bank 2', settlementDate: '2026-09-03', settlementAccount: 'Bank 2' },
-  { id: 3, date: '2026-09-02', category: 'Salary', type: 'income', amount: 1000, description: 'September pay', account: 'Bank 1', settlementDate: '2026-09-02', settlementAccount: 'Bank 1' },
-  { id: 4, date: '2026-09-04', category: 'Food', type: 'expense', amount: 8, description: 'Coffee', account: 'Satispay', settlementDate: '2026-09-04', settlementAccount: 'Satispay' },
+  { id: 1, date: '2026-09-01', category: 'Food', type: 'expense', amount: 10, description: 'Groceries', account: 'Satispay', toAccount: null, settlementDate: '2026-09-01', settlementAccount: 'Satispay' },
+  { id: 2, date: '2026-09-03', category: 'Fuel', type: 'expense', amount: 40, description: 'Shell station', account: 'Bank 2', toAccount: null, settlementDate: '2026-09-03', settlementAccount: 'Bank 2' },
+  { id: 3, date: '2026-09-02', category: 'Salary', type: 'income', amount: 1000, description: 'September pay', account: 'Bank 1', toAccount: null, settlementDate: '2026-09-02', settlementAccount: 'Bank 1' },
+  { id: 4, date: '2026-09-04', category: 'Food', type: 'expense', amount: 8, description: 'Coffee', account: 'Satispay', toAccount: null, settlementDate: '2026-09-04', settlementAccount: 'Satispay' },
 ];
 
 describe('table-view', () => {

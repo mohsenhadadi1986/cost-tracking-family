@@ -63,7 +63,7 @@ try {
         description: 'Bad type',
         account: 'ING Current Account',
       }),
-    /type must be either expense or income/
+    /type must be expense, income, or transfer/
   );
 
   assert.throws(

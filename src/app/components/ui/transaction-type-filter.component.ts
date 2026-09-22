@@ -75,7 +75,8 @@ export class TransactionTypeFilterComponent implements ControlValueAccessor {
   readonly options: { value: TransactionTypeFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'expense', label: 'Expense' },
-    { value: 'income', label: 'Income' }
+    { value: 'income', label: 'Income' },
+    { value: 'transfer', label: 'Transfer' }
   ];
 
   value: TransactionTypeFilter = 'all';
@@ -87,7 +88,7 @@ export class TransactionTypeFilterComponent implements ControlValueAccessor {
   private onTouched: () => void = () => {};
 
   writeValue(value: TransactionTypeFilter | null): void {
-    this.value = value === 'expense' || value === 'income' ? value : 'all';
+    this.value = value === 'expense' || value === 'income' || value === 'transfer' ? value : 'all';
   }
 
   registerOnChange(fn: (value: TransactionTypeFilter) => void): void {

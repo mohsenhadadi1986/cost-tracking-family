@@ -9,7 +9,7 @@ export type SummaryTransaction = Pick<
   Transaction,
   'date' | 'category' | 'type' | 'amount' | 'account'
 > &
-  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount'>>;
+  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount'>>;
 
 export type AccountSummaryMeta = {
   name: string;
@@ -137,7 +137,7 @@ export function getTotals(transactions: SummaryTransaction[]): {
       if (!isReceivableCategory(transaction.category)) {
         totalIncome += transaction.amount;
       }
-    } else {
+    } else if (transaction.type === 'expense') {
       totalExpense += transaction.amount;
     }
   }
@@ -265,6 +265,7 @@ export function getAccountBalances(
       ...accounts.map(account => account.name),
       ...transactions.map(transaction => transaction.account),
       ...transactions.map(transaction => settlementAccountOf(transaction)),
+      ...transactions.flatMap(transaction => (transaction.toAccount ? [transaction.toAccount] : [])),
     ]),
   ];
 
@@ -303,6 +304,15 @@ export function getAccountBalances(
       ) {
         amount -= transaction.amount;
         related.push(transaction);
+      } else if (transaction.type === 'transfer' && transaction.date <= asOfDate) {
+        if (transaction.account === account) {
+          amount -= transaction.amount;
+          related.push(transaction);
+        }
+        if (transaction.toAccount === account) {
+          amount += transaction.amount;
+          related.push(transaction);
+        }
       }
     }
 

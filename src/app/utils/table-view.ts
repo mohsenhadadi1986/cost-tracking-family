@@ -23,6 +23,7 @@ export function searchTransactions(rows: Transaction[], query: string): Transact
     row.description.toLowerCase().includes(normalized) ||
     row.category.toLowerCase().includes(normalized) ||
     row.account.toLowerCase().includes(normalized) ||
+    (row.toAccount ?? '').toLowerCase().includes(normalized) ||
     row.type.toLowerCase().includes(normalized)
   );
 }

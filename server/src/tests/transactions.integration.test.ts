@@ -150,6 +150,86 @@ describe('Transaction API integration', () => {
       assert.equal(dueSummary.body.creditCardDues[0].amount, 40);
     });
 
+    it('moves cash between places without counting it as income or expense', async () => {
+      const { app } = createTestApp(false);
+      const date = daysAgo(0);
+
+      const income = await request(app).post('/api/transactions').send({
+        date,
+        category: 'Salary',
+        type: 'income',
+        amount: 200,
+        description: 'Pay',
+        account: 'Post Bank',
+      });
+      assert.equal(income.status, 201);
+
+      const transfer = await request(app).post('/api/transactions').send({
+        date,
+        category: 'Food',
+        type: 'transfer',
+        amount: 50,
+        description: 'Moved to Revolut',
+        account: 'Post Bank',
+        toAccount: 'Revolut',
+      });
+
+      assert.equal(transfer.status, 201);
+      assert.equal(transfer.body.type, 'transfer');
+      assert.equal(transfer.body.category, 'Transfer');
+      assert.equal(transfer.body.account, 'Post Bank');
+      assert.equal(transfer.body.toAccount, 'Revolut');
+      assert.equal(transfer.body.amount, 50);
+
+      const summary = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate: date, endDate: date });
+
+      assert.equal(summary.status, 200);
+      assert.equal(summary.body.totalIncome, 200);
+      assert.equal(summary.body.totalExpense, 0);
+      assert.equal(summary.body.netBalance, 200);
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === 'Post Bank')?.amount,
+        150
+      );
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === 'Revolut')?.amount,
+        50
+      );
+      assert.equal(summary.body.currentBalance, 200);
+    });
+
+    it('rejects a transfer that does not name two different cash places', async () => {
+      const { app } = createTestApp(false);
+      const base = {
+        date: daysAgo(0),
+        type: 'transfer',
+        amount: 20,
+        description: 'Move',
+        account: 'Post Bank',
+      };
+
+      const missingDestination = await request(app).post('/api/transactions').send(base);
+      assert.equal(missingDestination.status, 400);
+      assert.match(missingDestination.body.error, /toAccount is required/);
+
+      const samePlace = await request(app).post('/api/transactions').send({
+        ...base,
+        toAccount: 'Post Bank',
+      });
+      assert.equal(samePlace.status, 400);
+      assert.match(samePlace.body.error, /two different places/);
+
+      const creditCard = await request(app).post('/api/transactions').send({
+        ...base,
+        account: DEFAULT_CREDIT_CARD,
+        toAccount: 'Revolut',
+      });
+      assert.equal(creditCard.status, 400);
+      assert.match(creditCard.body.error, /not credit cards/);
+    });
+
     it('returns 400 for invalid type', async () => {
       const { app } = createTestApp(false);
 
@@ -164,7 +244,7 @@ describe('Transaction API integration', () => {
         });
 
       assert.equal(response.status, 400);
-      assert.match(response.body.error, /type must be either expense or income/);
+      assert.match(response.body.error, /type must be expense, income, or transfer/);
     });
 
     it('returns 400 for non-positive amount', async () => {
@@ -346,7 +426,7 @@ describe('Transaction API integration', () => {
         .query({ type: 'invalid' });
 
       assert.equal(response.status, 400);
-      assert.match(response.body.error, /type must be either expense or income/);
+      assert.match(response.body.error, /type must be expense, income, or transfer/);
     });
   });
 
@@ -431,7 +511,7 @@ describe('Transaction API integration', () => {
         .query({ type: 'invalid' });
 
       assert.equal(response.status, 400);
-      assert.match(response.body.error, /type must be either expense or income/);
+      assert.match(response.body.error, /type must be expense, income, or transfer/);
     });
   });
 

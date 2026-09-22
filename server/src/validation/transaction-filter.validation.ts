@@ -5,7 +5,7 @@ export interface TransactionFilterCriteria {
   startDate?: string;
   endDate?: string;
   categories?: string[];
-  type?: 'expense' | 'income';
+  type?: 'expense' | 'income' | 'transfer';
 }
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -56,21 +56,21 @@ function parseCategoriesParam(
   return categories;
 }
 
-function parseTypeParam(value: unknown): 'expense' | 'income' | undefined {
+function parseTypeParam(value: unknown): 'expense' | 'income' | 'transfer' | undefined {
   if (value === undefined) {
     return undefined;
   }
 
   if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error('type must be either expense or income');
+    throw new Error('type must be expense, income, or transfer');
   }
 
   const type = value.trim();
-  if (type === 'expense' || type === 'income') {
+  if (type === 'expense' || type === 'income' || type === 'transfer') {
     return type;
   }
 
-  throw new Error('type must be either expense or income');
+  throw new Error('type must be expense, income, or transfer');
 }
 
 export function parseTransactionFilterQuery(

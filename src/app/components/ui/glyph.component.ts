@@ -168,6 +168,10 @@ import { GlyphSet, glyphKey } from '../../utils/glyph';
           <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
+        <svg *ngSwitchCase="'swap'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 7h11l-3-3"/>
+          <path d="M17 17H6l3 3"/>
+        </svg>
         <svg *ngSwitchDefault viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2H3v9l8.3 8.3a1 1 0 0 0 1.4 0L21 11.7a1 1 0 0 0 0-1.4Z"/>
           <circle cx="7.5" cy="7.5" r="1.2"/>

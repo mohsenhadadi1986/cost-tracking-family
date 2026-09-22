@@ -333,6 +333,7 @@ export class TransactionService {
       ...transaction,
       settlementDate: transaction.settlementDate ?? transaction.date,
       settlementAccount: transaction.settlementAccount ?? transaction.account,
+      toAccount: transaction.toAccount ?? null,
       id: index + 1
     }));
 

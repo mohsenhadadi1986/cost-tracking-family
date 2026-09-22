@@ -12,6 +12,7 @@ const sampleTransaction: Transaction = {
   amount: 42,
   description: 'Groceries',
   account: 'Satispay',
+  toAccount: null,
   settlementDate: '2024-06-15',
   settlementAccount: 'Satispay',
 };
