@@ -158,43 +158,38 @@ Each repo has the same four secrets. GitHub path: **Settings → Secrets and var
 
 Each repo has `.github/workflows/deploy.yml`. GitHub reads that file from the branch you push. For Zenner, the file has to be on `raspberry-integration`. A copy that exists only on `multi-tenants` will not deploy the server.
 
-What the job does:
+What every job does first:
 
-1. SSH in as `deploy`.
-2. `cd` to `VPS_APP_PATH`.
-3. `git fetch`, `git checkout` the production branch, `git pull --ff-only`.
-4. Rebuild containers from the `deploy/` directory, so Compose loads `deploy/.env`.
-5. Check that the app answers. A failed check fails the GitHub job.
+1. SSH in as `deploy` and `cd` to `VPS_APP_PATH`.
+2. Remember the commit that is running now (`git rev-parse HEAD`).
+3. `git pull --ff-only` the production branch.
+4. `docker compose build` from `deploy/`, so Compose loads `deploy/.env`. A failed build stops here. The running containers stay as they are, and the server git checkout is put back on the saved commit.
 
-Commands, per app:
+The switch happens only after the image builds. If the new app then fails its health check, the job puts the server back on the saved commit and starts those containers again. The GitHub run stays red. Do not press **Re-run**. That pulls the same bad commit from GitHub again. Push a new commit with the fix.
 
 **cost-tracking-family**
 
-```bash
-cd /opt/apps/cost-tracking-family/deploy
-docker compose -f docker-compose-prod.yml up -d --build
-```
-
-Then it asks the backend container for `http://127.0.0.1:3000/api/health`. The public site asks for Basic Auth, so the check talks to the container directly.
+1. Build both images.
+2. `docker compose up -d`. The new backend can change the SQLite file as soon as the process starts.
+3. Ask `cost-tracking-backend` for `http://127.0.0.1:3000/api/health`. The public site asks for a password, so the check talks to the container.
+4. If that check fails, restore the saved commit and `up -d --build` again. The SQLite file may already contain the new schema. Restoring the code does not undo those table changes.
 
 **zenner-heating-monitor**
 
-```bash
-cd /opt/apps/zenner-heating-monitor/deploy
-docker compose -f docker-compose-prod.yml up -d --build
-```
-
-Compose runs Alembic in `zenner-migrate` before it starts the API. The check calls `https://zenner.ai-eos.it/api/v1/health`. That URL has no Basic Auth. The Raspberry Pi does not need a restart.
+1. Build the images. Alembic does not run during the build, and `zenner-postgres` stays up.
+2. Log the current `https://zenner.ai-eos.it/api/v1/health` result, then continue. A site that is already down must still be allowed to receive the fix.
+3. `docker compose up -d`. Compose runs `alembic upgrade head`, then starts the API and the frontend.
+4. Check `https://zenner.ai-eos.it/api/v1/health` again. That URL has no Basic Auth. The Raspberry Pi does not need a restart.
+5. If that check fails, restore the saved commit and rebuild `zenner-backend` and `zenner-frontend` with `--no-deps`, so the old Alembic files do not run against a database that is already on a newer revision. Postgres is not downgraded.
 
 **QuickDish**
 
-```bash
-cd /opt/apps/QuickDish/deploy
-docker compose -f docker-compose-prod.yml up --build -d frontend backend
-bash ./run-migration.sh
-```
-
-Then it checks `https://quickdishapp.com`, and checks that family and Zenner still answer. Family may return `401` because of Basic Auth. `200` and `401` both mean nginx is still routing that host.
+1. Build only `frontend` and `backend`. `quickdish-db` and `nginx-proxy` stay up.
+2. `docker compose up -d frontend backend`.
+3. Confirm `quickdish-backend` is running and `https://quickdishapp.com` answers. If this fails, restore the saved commit. Migrations have not run, so this rollback is the clean one.
+4. Run `bash ./run-migration.sh` only after step 3 passes.
+5. Check the site again. If this fails, leave the new code in place. The database may already have the new schema, and the old code would not undo it.
+6. Last, check the other two hosts. Family may return `401` because of Basic Auth. Zenner health must return success. Those checks do not roll QuickDish back. This deploy does not restart nginx.
 
 Only one deploy of a given repo runs at a time. A second push waits for the first job to finish.
 
@@ -237,10 +232,12 @@ Open the failed step in **Actions** and read the last lines.
 | `Permission denied (publickey)` during `git pull` | `deploy` cannot talk to GitHub | Repeat the copy of `/root/.ssh/id_ed25519` to `/home/deploy/.ssh/` |
 | `dubious ownership` | The repo folder is not owned by `deploy` | `chown -R deploy:deploy` that folder |
 | `Not possible to fast-forward` | The server has local commits or a dirty git state | On the server as `deploy`, `cd` to the repo, `git status`. Get back to a clean production branch, then re-run the job |
-| Health check failed | The new containers did not answer | On the server: `docker ps` and `docker compose -f docker-compose-prod.yml logs` from that app's `deploy/` folder |
-| QuickDish migration error | The new backend is up, the migration script exited non-zero | Read the migration output in the Actions log. Fix forward with another commit. Do not run `down -v` |
+| `image build failed` | The new image did not build | The old containers are still the ones serving traffic. Fix the build and push a new commit |
+| `restoring` plus a commit id | The new app failed health, and the job started the previous commit again | Wait until that second compose finishes in the same log. Then push a fix. Do not re-run the red job |
+| QuickDish `migrations failed` | The new backend is up and the migration script exited non-zero | Read the migration output. Push a fix. The workflow does not switch the code back after this line |
+| QuickDish `failed after migrations` | The site failed after the schema change | Leave the server as it is and push a fix. Restoring the old code does not restore the database |
 
-To put an app back on the last good commit, SSH in as `deploy`, `cd` to that repo, `git checkout <last-good-sha>`, then run the same `docker compose` command the workflow uses. Push a revert to the production branch when you want GitHub to match the server again.
+A red run that printed `restoring` has already tried to put the previous containers back. Push the fix as a new commit on the production branch. Re-running the failed job deploys the bad commit again, because that commit is still the tip of the branch on GitHub.
 
 ## Files
 
