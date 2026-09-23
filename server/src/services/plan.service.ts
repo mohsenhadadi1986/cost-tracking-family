@@ -1,7 +1,9 @@
 import { Plan, PlanRecord } from '../models/plan.model';
 import { AccountRepository } from '../repositories/account.repository';
+import { CategoryRepository } from '../repositories/category.repository';
 import { PlanRepository } from '../repositories/plan.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { todayIsoDate } from '../utils/credit-card';
 import { parsePlanWriteInput } from '../validation/plan.validation';
 import { markPlanOccurrences, remainingUnpaidCount } from '../utils/plan-schedule';
 
@@ -16,11 +18,42 @@ export class PlanService {
   constructor(
     private readonly repository: PlanRepository,
     private readonly accountRepository: AccountRepository,
-    private readonly transactionRepository: TransactionRepository
+    private readonly transactionRepository: TransactionRepository,
+    private readonly categoryRepository: CategoryRepository
   ) {}
 
   list(): Plan[] {
+    this.settleDueInstallments();
     return this.withCounts(this.repository.findAll());
+  }
+
+  settleDueInstallments(asOfDate = todayIsoDate()): void {
+    const plans = this.repository.findAll();
+    if (plans.length === 0) {
+      return;
+    }
+
+    const due = markPlanOccurrences(plans, this.transactionRepository.findAll())
+      .filter(occurrence => !occurrence.paid && occurrence.dueDate <= asOfDate);
+
+    for (const occurrence of due) {
+      this.transactionRepository.create({
+        date: occurrence.dueDate,
+        category: expenseCategoryForPlan(occurrence.name, this.categoryRepository),
+        type: 'expense',
+        amount: occurrence.amount,
+        description: occurrence.name,
+        account: occurrence.account,
+      });
+    }
+
+    const settled = markPlanOccurrences(this.repository.findAll(), this.transactionRepository.findAll());
+    for (const plan of plans) {
+      const total = settled.filter(occurrence => occurrence.planId === plan.id).length;
+      if (total > 0 && remainingUnpaidCount(settled, plan.id) === 0) {
+        this.repository.delete(plan.id);
+      }
+    }
   }
 
   create(body: unknown): Plan {
@@ -73,4 +106,26 @@ export class PlanService {
   private withCount(plan: PlanRecord): Plan {
     return this.withCounts([plan])[0];
   }
+}
+
+function expenseCategoryForPlan(name: string, categoryRepository: CategoryRepository): string {
+  if (categoryRepository.existsByNameAndType(name, 'expense')) {
+    return name;
+  }
+
+  const names = categoryRepository.findNamesByType('expense');
+  const folded = name.toLowerCase();
+  const match = names
+    .filter(category => folded.includes(category.toLowerCase()))
+    .sort((left, right) => right.length - left.length)[0];
+
+  if (match) {
+    return match;
+  }
+
+  if (names.includes('Unexpected cost')) {
+    return 'Unexpected cost';
+  }
+
+  return names[0] ?? 'Unexpected cost';
 }

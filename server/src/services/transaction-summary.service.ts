@@ -4,15 +4,18 @@ import { PlanRepository } from '../repositories/plan.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import { buildSummary } from './period-totals';
+import { PlanService } from './plan.service';
 
 export class TransactionSummaryService {
   constructor(
     private readonly repository: TransactionRepository,
     private readonly accountRepository: AccountRepository,
-    private readonly planRepository: PlanRepository
+    private readonly planRepository: PlanRepository,
+    private readonly planService: PlanService
   ) {}
 
   getSummary(criteria: TransactionFilterCriteria = {}): TransactionSummaryResponse {
+    this.planService.settleDueInstallments();
     const transactions = this.repository.findFiltered(criteria);
     const lifetimeTransactions = this.repository.findAll();
 

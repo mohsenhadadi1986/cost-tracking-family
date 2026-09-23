@@ -351,12 +351,19 @@ export class TransactionService {
       return of(undefined);
     }
 
-    return this.http.get<TransactionSummaryResponse>(this.summaryUrl, this.overviewSummaryParams()).pipe(
+    return this.http.get<Transaction[]>(this.transactionsUrl, this.httpOptionsWithFilter()).pipe(
+      tap(transactions => {
+        if (requestId === this.summaryRequestId) {
+          this.transactions.set(transactions);
+        }
+      }),
+      switchMap(() => this.http.get<TransactionSummaryResponse>(this.summaryUrl, this.overviewSummaryParams())),
       tap(summary => {
         if (requestId === this.summaryRequestId) {
           this.summary.set(summary);
         }
       }),
+      switchMap(() => this.planService.loadPlans()),
       map(() => undefined),
       catchError(() => {
         if (requestId === this.summaryRequestId) {

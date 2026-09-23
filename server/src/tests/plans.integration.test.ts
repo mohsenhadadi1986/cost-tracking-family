@@ -26,6 +26,33 @@ function billingDay(date = new Date()): number {
   return Math.min(date.getDate(), 28);
 }
 
+function monthEnd(date = new Date()): string {
+  const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+}
+
+function reservedThisMonth(date = new Date()): { billingDay: number; startDate: string; rangeStart: string; rangeEnd: string } {
+  const last = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  if (date.getDate() < last) {
+    const monthKey = monthStart(date).slice(0, 7);
+    return {
+      billingDay: date.getDate() + 1,
+      startDate: `${monthKey}-01`,
+      rangeStart: `${monthKey}-01`,
+      rangeEnd: monthEnd(date),
+    };
+  }
+
+  const next = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  const monthKey = monthStart(next).slice(0, 7);
+  return {
+    billingDay: 1,
+    startDate: `${monthKey}-01`,
+    rangeStart: `${monthKey}-01`,
+    rangeEnd: monthEnd(next),
+  };
+}
+
 function tempDbPath(): string {
   return path.join(os.tmpdir(), `cost-tracking-plans-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
 }
@@ -70,13 +97,14 @@ describe('Plan API integration', () => {
 
   it('creates a mortgage plan and shows it as reserved this month', async () => {
     const { app } = createTestApp();
+    const reserved = reservedThisMonth();
 
     const created = await request(app).post('/api/plans').send({
       name: 'Mortgage',
       amount: 800,
       account: DEFAULT_ACCOUNT,
-      billingDay: 1,
-      startDate: monthStart(),
+      billingDay: reserved.billingDay,
+      startDate: reserved.startDate,
       paymentCount: 24,
     });
 
@@ -87,7 +115,7 @@ describe('Plan API integration', () => {
 
     const summary = await request(app)
       .get('/api/transactions/summary')
-      .query({ startDate: '2026-09-01', endDate: '2026-09-30' });
+      .query({ startDate: reserved.rangeStart, endDate: reserved.rangeEnd });
 
     assert.equal(summary.status, 200);
     const mortgage = summary.body.plannedDues.find((due: { name: string }) => due.name === 'Mortgage');
@@ -203,6 +231,113 @@ describe('Plan API integration', () => {
     assert.ok(bill);
     assert.equal(bill.dueDate, '2026-09-30');
     assert.equal(bill.amount, 121.25);
+  });
+
+  it('logs a due installment, drops it from planned, and removes the plan when none are left', async () => {
+    const { app } = createTestApp();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const created = await request(app).post('/api/plans').send({
+      name: 'Gas bill',
+      amount: 84.34,
+      account: DEFAULT_ACCOUNT,
+      billingDay: yesterday.getDate(),
+      startDate: monthStart(yesterday),
+      endDate: isoDate(yesterday),
+      paymentCount: null,
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.remainingCount, 1);
+
+    const summary = await request(app)
+      .get('/api/transactions/summary')
+      .query({ startDate: monthStart(yesterday), endDate: monthEnd(yesterday) });
+
+    assert.equal(summary.status, 200);
+    assert.equal(summary.body.plannedDues.length, 0);
+    assert.equal(summary.body.plannedDueTotal, 0);
+    assert.equal(summary.body.currentBalance, -84.34);
+
+    const transactions = await request(app).get('/api/transactions');
+    assert.equal(transactions.body.length, 1);
+    assert.equal(transactions.body[0].type, 'expense');
+    assert.equal(transactions.body[0].amount, 84.34);
+    assert.equal(transactions.body[0].account, DEFAULT_ACCOUNT);
+    assert.equal(transactions.body[0].category, 'Gas');
+    assert.equal(transactions.body[0].description, 'Gas bill');
+    assert.equal(transactions.body[0].date, isoDate(yesterday));
+
+    const plans = await request(app).get('/api/plans');
+    assert.equal(plans.body.length, 0);
+
+    const again = await request(app).get('/api/transactions');
+    assert.equal(again.body.length, 1);
+  });
+
+  it('logs only the installment whose day has arrived', async () => {
+    const { app } = createTestApp();
+    const today = new Date();
+
+    await request(app).post('/api/plans').send({
+      name: 'Mortgage',
+      amount: 800,
+      account: DEFAULT_ACCOUNT,
+      billingDay: today.getDate(),
+      startDate: monthStart(today),
+      paymentCount: 3,
+    });
+
+    const summary = await request(app)
+      .get('/api/transactions/summary')
+      .query({ startDate: monthStart(today), endDate: monthEnd(today) });
+
+    assert.equal(summary.body.plannedDueTotal, 0);
+    assert.equal(summary.body.currentBalance, -800);
+
+    const plans = await request(app).get('/api/plans');
+    assert.equal(plans.body.length, 1);
+    assert.equal(plans.body[0].remainingCount, 2);
+    assert.equal(plans.body[0].totalCount, 3);
+
+    const transactions = await request(app).get('/api/transactions');
+    assert.equal(transactions.body.length, 1);
+    assert.equal(transactions.body[0].category, 'Mortgage');
+    assert.equal(transactions.body[0].date, isoDate(today));
+  });
+
+  it('does not charge a due installment that was already logged', async () => {
+    const { app } = createTestApp();
+    const today = new Date();
+
+    await request(app).post('/api/plans').send({
+      name: 'Mortgage',
+      amount: 800,
+      account: DEFAULT_ACCOUNT,
+      billingDay: today.getDate(),
+      startDate: monthStart(today),
+      paymentCount: 2,
+    });
+
+    await request(app).post('/api/transactions').send({
+      date: isoDate(today),
+      category: 'Mortgage',
+      type: 'expense',
+      amount: 800,
+      description: 'Mortgage',
+      account: DEFAULT_ACCOUNT,
+    });
+
+    const summary = await request(app).get('/api/transactions/summary');
+    assert.equal(summary.body.currentBalance, -800);
+
+    const transactions = await request(app).get('/api/transactions');
+    assert.equal(transactions.body.length, 1);
+
+    const plans = await request(app).get('/api/plans');
+    assert.equal(plans.body.length, 1);
+    assert.equal(plans.body[0].remainingCount, 1);
   });
 
   it('rejects a plan for an unknown place', async () => {

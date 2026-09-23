@@ -168,7 +168,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Planned {{ monthPhrase() }}</h3>
           <p class="overview-card__value amount-expense">{{ plannedDueTotal() | currency }}</p>
-          <p class="overview-card__hint">Reserved withdrawals. A logged payment of the same amount drops out.</p>
+          <p class="overview-card__hint">Reserved until the due day. That day logs the payment and drops it from this list.</p>
           <ul class="place-list" *ngIf="plannedDues().length > 0">
             <li class="place-list__item" *ngFor="let due of plannedDues()">
               <div class="place-list__row">

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { CategoryRepository } from '../repositories/category.repository';
 import type { TransactionRepository } from '../repositories/transaction.repository';
+import { PlanService } from '../services/plan.service';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { parseTransactionFilterQuery } from '../validation/transaction-filter.validation';
 import {
@@ -12,7 +13,8 @@ import {
 export function createTransactionsRouter(
   repository: TransactionRepository,
   summaryService: TransactionSummaryService,
-  categoryRepository: CategoryRepository
+  categoryRepository: CategoryRepository,
+  planService: PlanService
 ): Router {
   const router = Router();
 
@@ -73,6 +75,7 @@ export function createTransactionsRouter(
    */
   router.get('/', (req, res) => {
     try {
+      planService.settleDueInstallments();
       const criteria = parseTransactionFilterQuery(req.query, categoryRepository);
       res.status(200).json(repository.findFiltered(criteria));
     } catch (error) {

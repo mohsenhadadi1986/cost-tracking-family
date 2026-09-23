@@ -52,8 +52,8 @@ export function createApp(
   const categoryService = new CategoryService(categoryRepository);
   const accountService = new AccountService(accountRepository);
   const repository = new TransactionRepository(db, categoryRepository, accountRepository);
-  const planService = new PlanService(planRepository, accountRepository, repository);
-  const summaryService = new TransactionSummaryService(repository, accountRepository, planRepository);
+  const planService = new PlanService(planRepository, accountRepository, repository, categoryRepository);
+  const summaryService = new TransactionSummaryService(repository, accountRepository, planRepository, planService);
   const receiptScanService = new ReceiptScanService(categoryRepository, documentAgent);
   const tax730Service = new Tax730Service(new Tax730Repository(db), repository, documentAgent);
 
@@ -93,7 +93,7 @@ export function createApp(
   app.use('/api/categories', createCategoriesRouter(categoryService));
   app.use('/api/accounts', createAccountsRouter(accountService));
   app.use('/api/plans', createPlansRouter(planService));
-  app.use('/api/transactions', createTransactionsRouter(repository, summaryService, categoryRepository));
+  app.use('/api/transactions', createTransactionsRouter(repository, summaryService, categoryRepository, planService));
   app.use('/api/receipts', createReceiptsRouter(receiptScanService));
   app.use('/api/tax/730', createTax730Router(tax730Service));
 

@@ -202,7 +202,7 @@ import { todayIsoDate } from '../utils/credit-card';
     <section class="card form-card settings-card">
       <h3 class="categories-section-title">Plans</h3>
       <p class="categories-section-copy">
-        Mortgage, installments, or a bill this month. Overview reserves this month until you log the payment.
+        Mortgage, installments, or a bill this month. On the due day the payment is logged on that place. If none are left, the plan is removed.
       </p>
 
       <div class="form-group">
