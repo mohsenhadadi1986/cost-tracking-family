@@ -30,7 +30,7 @@ One VPS, one public proxy, three apps:
 | App | Folder on the VPS | Branch that deploys | Public site |
 |---|---|---|---|
 | QuickDish | `/opt/apps/QuickDish` | `main` | `https://quickdishapp.com` |
-| cost-tracking-family | `/opt/apps/cost-tracking-family` | `main` | `https://ai-eos.it` |
+| cost-tracking-family | `/opt/apps/cost-tracking-family` | `main` | `https://family.ai-eos.it` |
 | zenner-heating-monitor | `/opt/apps/zenner-heating-monitor` | `raspberry-integration` | `https://zenner.ai-eos.it` |
 
 QuickDish owns nginx on ports 80 and 443. Family and Zenner join the Docker network `quickdish_default`. A family or Zenner deploy does not restart nginx. A QuickDish deploy rebuilds `frontend` and `backend`, then runs `deploy/run-migration.sh`. It does not run `./deploy-prod.sh`, because that script stops the whole stack, including the proxy the other two sites use.

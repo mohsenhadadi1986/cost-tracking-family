@@ -1,5 +1,5 @@
 # Family expense app: frontend + backend only.
-# Joins QuickDish's docker network so nginx-proxy can route ai-eos.it.
+# Joins QuickDish's docker network so nginx-proxy can route family.ai-eos.it.
 # Run from this directory: cd deploy && docker compose -f docker-compose-prod.yml up -d --build
 # Requires QuickDish stack running (external network quickdish_default).
 

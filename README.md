@@ -57,7 +57,7 @@ npm run server:start
 
 ## Production deploy (VPS next to QuickDish)
 
-See **[`deploy/README.md`](deploy/README.md)** for Docker Compose, domain `ai-eos.it`, nginx Basic Auth, and Let’s Encrypt steps alongside the existing QuickDish stack on the same VPS.
+See **[`deploy/README.md`](deploy/README.md)** for Docker Compose, domain `family.ai-eos.it`, nginx Basic Auth, and Let’s Encrypt steps alongside the existing QuickDish stack on the same VPS.
 
 ## Branding
 

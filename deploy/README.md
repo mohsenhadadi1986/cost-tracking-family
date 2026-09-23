@@ -1,11 +1,11 @@
 # cost-tracking-family — VPS deploy next to QuickDish
 
-This app shares the QuickDish VPS edge (`nginx-proxy` on ports 80/443). It does **not** bind public ports. Traffic for **`https://ai-eos.it`** (and **`www.ai-eos.it`**) is routed by QuickDish nginx with **HTTP Basic Auth**.
+This app shares the QuickDish VPS edge (`nginx-proxy` on ports 80/443). It does **not** bind public ports. Traffic for **`https://family.ai-eos.it`** is routed by QuickDish nginx with **HTTP Basic Auth**. **`https://ai-eos.it`** and **`https://www.ai-eos.it`** redirect there.
 
 ## Prerequisites
 
 1. QuickDish production stack is already running (`quickdish_default` Docker network exists).
-2. DNS: create **A** records for **`ai-eos.it`** and **`www.ai-eos.it`** → same VPS IP as QuickDish (this is a separate domain; both can share one server).
+2. DNS: **A** record **`family.ai-eos.it`** → same VPS IP as QuickDish. Apex **`ai-eos.it`** and **`www`** stay on that IP and redirect to the subdomain.
 3. Docker Compose v2 on the VPS.
 4. Repo on the server next to QuickDish (or anywhere; compose only needs this project + the external network).
 
@@ -16,10 +16,11 @@ Internet :80/:443
         │
    nginx-proxy (QuickDish)
         ├── quickdishapp.com     → QuickDish
-        └── ai-eos.it (+ www) + Basic Auth
-                ├── /api/ → cost-tracking-backend:3000
-                └── /     → cost-tracking-frontend:80
-                            └── SQLite volume
+        ├── family.ai-eos.it + Basic Auth
+        │       ├── /api/ → cost-tracking-backend:3000
+        │       └── /     → cost-tracking-frontend:80
+        │                   └── SQLite volume
+        └── ai-eos.it + www  → 301 https://family.ai-eos.it
 ```
 
 ## 1 — Create Basic Auth password (QuickDish deploy)
@@ -75,7 +76,7 @@ docker compose -f docker-compose-prod.yml \
   up -d nginx
 ```
 
-Test HTTP (expect Basic Auth challenge, then the app):
+Test HTTP (expect Basic Auth challenge, then the app). Before the hostname switch this is still the apex:
 
 ```bash
 curl -I http://ai-eos.it/
@@ -90,18 +91,18 @@ set -a && source .env && set +a
 
 docker compose -f docker-compose-prod.yml --profile certbot run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d ai-eos.it -d www.ai-eos.it \
+  -d family.ai-eos.it \
   --email "$CERTBOT_EMAIL" --agree-tos --non-interactive
 ```
 
-Cert files land under `live/ai-eos.it/` (first `-d` name).
+Cert files land under `live/family.ai-eos.it/`. The apex cert at `live/ai-eos.it/` stays in place so `ai-eos.it` and `www` can redirect over HTTPS. `family.conf` must be the mounted nginx file before this command, because that file is what answers the ACME challenge. Do not mount `family.host.conf` yet.
 
 ## 5 — Switch family nginx to HTTPS
 
-In QuickDish `deploy/.env`:
+In QuickDish `deploy/.env` (only after `live/family.ai-eos.it/` exists):
 
 ```bash
-FAMILY_NGINX_CONF=family.conf
+FAMILY_NGINX_CONF=family.host.conf
 ```
 
 Then:
@@ -119,12 +120,14 @@ docker compose -f docker-compose-prod.yml \
 Verify:
 
 ```bash
-curl -I https://ai-eos.it/
-curl -u family:'YOUR_PASSWORD' https://ai-eos.it/api/health
+curl -I https://family.ai-eos.it/
+curl -u family:'YOUR_PASSWORD' https://family.ai-eos.it/api/health
 # expect {"status":"ok"}
+curl -I https://ai-eos.it/
+# expect 301 to https://family.ai-eos.it/
 ```
 
-Also confirm QuickDish is still healthy on `https://quickdishapp.com`.
+Also confirm `https://quickdishapp.com` and `https://zenner.ai-eos.it/api/v1/health` are still healthy.
 
 ## Redeploy family app only
 
@@ -148,7 +151,7 @@ docker run --rm -v cost-tracking-family_sqlite_data:/data -v "$(pwd)":/backup al
 |-------|---------|
 | Edge | Only `nginx-proxy` publishes 80/443 |
 | Access | HTTP Basic Auth on the whole family site (SPA + API) |
-| TLS | Separate Let’s Encrypt cert for `ai-eos.it` / `www.ai-eos.it` |
+| TLS | Let’s Encrypt cert for `family.ai-eos.it`. Apex cert remains for the redirect |
 | API | Swagger disabled when `NODE_ENV=production`; no mock seed data |
 | Data | Named Docker volume `sqlite_data` |
 
