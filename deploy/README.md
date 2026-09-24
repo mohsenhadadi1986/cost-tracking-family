@@ -1,11 +1,11 @@
 # cost-tracking-family — VPS deploy next to QuickDish
 
-This app shares the QuickDish VPS edge (`nginx-proxy` on ports 80/443). It does **not** bind public ports. Traffic for **`https://family.ai-eos.it`** is routed by QuickDish nginx with **HTTP Basic Auth**. **`https://ai-eos.it`** and **`https://www.ai-eos.it`** redirect there.
+This app shares the QuickDish VPS edge (`nginx-proxy` on ports 80/443). It does **not** bind public ports. Traffic for **`https://family.ai-eos.it`** is routed by QuickDish nginx with **HTTP Basic Auth**. **`https://ai-eos.it`** and **`www`** are the AEOS platform.
 
 ## Prerequisites
 
 1. QuickDish production stack is already running (`quickdish_default` Docker network exists).
-2. DNS: **A** record **`family.ai-eos.it`** → same VPS IP as QuickDish. Apex **`ai-eos.it`** and **`www`** stay on that IP and redirect to the subdomain.
+2. DNS: **A** record **`family.ai-eos.it`** → same VPS IP as QuickDish. Apex **`ai-eos.it`** and **`www`** stay on that IP and serve AEOS.
 3. Docker Compose v2 on the VPS.
 4. Repo on the server next to QuickDish (or anywhere; compose only needs this project + the external network).
 
@@ -20,7 +20,7 @@ Internet :80/:443
         │       ├── /api/ → cost-tracking-backend:3000
         │       └── /     → cost-tracking-frontend:80
         │                   └── SQLite volume
-        └── ai-eos.it + www  → 301 https://family.ai-eos.it
+        └── ai-eos.it + www  → AEOS (family stays on family.ai-eos.it)
 ```
 
 ## 1 — Create Basic Auth password (QuickDish deploy)
@@ -73,6 +73,7 @@ If **zenner.ai-eos.it** is also live, include that overlay or nginx drops it:
 docker compose -f docker-compose-prod.yml \
   -f docker-compose.family.yml \
   -f docker-compose.zenner.yml \
+  -f docker-compose.aeos.yml \
   up -d nginx
 ```
 
@@ -112,10 +113,11 @@ cd /path/to/QuickDish/deploy
 docker compose -f docker-compose-prod.yml \
   -f docker-compose.family.yml \
   -f docker-compose.zenner.yml \
+  -f docker-compose.aeos.yml \
   up -d nginx
 ```
 
-(Omit `-f docker-compose.zenner.yml` only if Zenner is not deployed yet.)
+(Omit `-f docker-compose.zenner.yml` only if Zenner is not deployed yet. Omit `-f docker-compose.aeos.yml` only if AEOS is not deployed yet.)
 
 Verify:
 
@@ -123,8 +125,7 @@ Verify:
 curl -I https://family.ai-eos.it/
 curl -u family:'YOUR_PASSWORD' https://family.ai-eos.it/api/health
 # expect {"status":"ok"}
-curl -I https://ai-eos.it/
-# expect 301 to https://family.ai-eos.it/
+# https://ai-eos.it serves AEOS.
 ```
 
 Also confirm `https://quickdishapp.com` and `https://zenner.ai-eos.it/api/v1/health` are still healthy.
@@ -151,7 +152,7 @@ docker run --rm -v cost-tracking-family_sqlite_data:/data -v "$(pwd)":/backup al
 |-------|---------|
 | Edge | Only `nginx-proxy` publishes 80/443 |
 | Access | HTTP Basic Auth on the whole family site (SPA + API) |
-| TLS | Let’s Encrypt cert for `family.ai-eos.it`. Apex cert remains for the redirect |
+| TLS | Let’s Encrypt cert for `family.ai-eos.it`. Apex cert `live/ai-eos.it/` is used by AEOS |
 | API | Swagger disabled when `NODE_ENV=production`; no mock seed data |
 | Data | Named Docker volume `sqlite_data` |
 

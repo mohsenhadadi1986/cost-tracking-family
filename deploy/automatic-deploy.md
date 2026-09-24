@@ -219,6 +219,7 @@ cd /opt/apps/QuickDish/deploy
 docker compose -f docker-compose-prod.yml \
   -f docker-compose.family.yml \
   -f docker-compose.zenner.yml \
+  -f docker-compose.aeos.yml \
   up -d nginx
 ```
 
