@@ -144,13 +144,13 @@ describe('period-totals', () => {
     assert.equal(after.categoryTotals['Transfer'], undefined);
   });
 
-  it('keeps lent money out of cash on hand', () => {
+  it('moves lent money out of cash on hand', () => {
     const transactions = [
       {
         date: '2026-09-17',
         category: 'Initial budget',
         type: 'income' as const,
-        amount: 200,
+        amount: 500,
         account: 'Cash',
       },
       {
@@ -172,8 +172,8 @@ describe('period-totals', () => {
     assert.equal(summary.receivableBalances[0]?.account, 'Lend Mohammad');
     assert.equal(summary.receivableBalances[0]?.amount, 300);
     assert.equal(summary.receivableBalances[0]?.lastCategory, 'Cash');
-    assert.equal(summary.totalIncome, 200);
-    assert.deepEqual(summary.incomeByCategory, { 'Initial budget': 200 });
+    assert.equal(summary.totalIncome, 500);
+    assert.deepEqual(summary.incomeByCategory, { 'Initial budget': 500 });
   });
 
   it('uses the selected month for plans even when today is earlier', () => {

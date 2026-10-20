@@ -292,10 +292,7 @@ export function getAccountBalances(
         && transaction.account === account
         && transaction.date <= asOfDate
       ) {
-        if (isReceivableCategory(transaction.category)) {
-          continue;
-        }
-        amount += transaction.amount;
+        amount += isReceivableCategory(transaction.category) ? -transaction.amount : transaction.amount;
         related.push(transaction);
       } else if (
         transaction.type === 'expense' &&
