@@ -113,6 +113,20 @@ export function getOpenApiSchemas() {
           type: 'string',
           description: 'Category of the most recent movement',
         },
+        items: {
+          type: 'array',
+          description: 'Individual lends still outstanding in this category',
+          items: {
+            type: 'object',
+            required: ['description', 'amount', 'date', 'account'],
+            properties: {
+              description: { type: 'string' },
+              amount: { type: 'number' },
+              date: { type: 'string', format: 'date' },
+              account: { type: 'string', description: 'Place the money left from' },
+            },
+          },
+        },
       },
     },
     CreditCardDue: {

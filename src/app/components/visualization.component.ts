@@ -6,10 +6,11 @@ import { ButtonComponent } from './ui/button.component';
 import { CategorySelectComponent } from './ui/category-select.component';
 import { DateFieldComponent } from './ui/date-field.component';
 import { GlyphComponent } from './ui/glyph.component';
-import { AccountBreakdown, CreditCardDue, PlannedDue } from '../models/transaction-summary.model';
+import { AccountBreakdown, CreditCardDue, PlannedDue, ReceivableItem } from '../models/transaction-summary.model';
 import { AccountService } from '../services/account.service';
 import { TransactionService } from '../services/transaction.service';
 import { todayIsoDate } from '../utils/credit-card';
+import { REPAYMENT_DESCRIPTION_PREFIX } from '../utils/period-totals';
 import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../utils/overview-interval';
 
 @Component({
@@ -115,68 +116,80 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   <app-glyph set="category" [name]="row.account"></app-glyph>
                   {{ row.account }}
                 </span>
-                <span class="place-list__amount amount-income">{{ row.amount | currency }}</span>
+                <span
+                  class="place-list__amount amount-income"
+                  *ngIf="receivableBalances().length > 1 && (row.items?.length ?? 0) > 1">
+                  {{ row.amount | currency }}
+                </span>
               </div>
-              <p class="place-list__meta">{{ receivableMeta(row) }}</p>
-              <div class="place-list__actions" *ngIf="repaying() !== row.account">
-                <app-button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  [disabled]="submitting()"
-                  (click)="startRepayment(row)">
-                  Repayment done
-                </app-button>
-              </div>
-              <form
-                *ngIf="repaying() === row.account"
-                class="repayment-form"
-                (ngSubmit)="saveRepayment(row)">
-                <app-category-select
-                  label="Place"
-                  placeholder="Where the money came back"
-                  [options]="walletNames()"
-                  [(ngModel)]="repaymentForm.place"
-                  name="repaymentPlace"
-                  iconSet="place"
-                  [disabled]="submitting()">
-                </app-category-select>
-                <p *ngIf="walletNames().length === 0" class="repayment-form__hint">
-                  Add a bank or wallet on the Settings tab before recording a repayment.
-                </p>
-                <div class="form-group">
-                  <label for="repayment-amount">Amount</label>
-                  <input
-                    id="repayment-amount"
-                    type="number"
-                    name="repaymentAmount"
-                    [(ngModel)]="repaymentForm.amount"
-                    min="0.01"
-                    step="0.01"
-                    [max]="row.amount"
-                    [disabled]="submitting()"
-                    required>
-                </div>
-                <app-date-field
-                  label="Date"
-                  name="repaymentDate"
-                  [(ngModel)]="repaymentForm.date"
-                  [required]="true"
-                  [disabled]="submitting()">
-                </app-date-field>
-                <p class="repayment-form__hint">
-                  Still owed {{ row.amount | currency }}. This returns the money to the place you pick.
-                </p>
-                <p *ngIf="repaymentError()" class="repayment-form__error">{{ repaymentError() }}</p>
-                <div class="repayment-form__actions">
-                  <app-button type="submit" size="sm" variant="primary" [disabled]="submitting() || walletNames().length === 0">
-                    {{ submitting() ? 'Saving…' : 'Save repayment' }}
-                  </app-button>
-                  <app-button type="button" size="sm" variant="secondary" [disabled]="submitting()" (click)="cancelRepayment()">
-                    Cancel
-                  </app-button>
-                </div>
-              </form>
+              <ul class="lend-list">
+                <li class="lend-list__item" *ngFor="let item of row.items; let itemIndex = index">
+                  <div class="place-list__row">
+                    <span class="lend-list__description">{{ item.description || row.account }}</span>
+                    <span class="place-list__amount amount-income">{{ item.amount | currency }}</span>
+                  </div>
+                  <p class="place-list__meta">{{ receivableItemMeta(item) }}</p>
+                  <div class="place-list__actions" *ngIf="repaying() !== repaymentKey(row, item, itemIndex)">
+                    <app-button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      [disabled]="submitting()"
+                      (click)="startRepayment(row, item, itemIndex)">
+                      Repayment done
+                    </app-button>
+                  </div>
+                  <form
+                    *ngIf="repaying() === repaymentKey(row, item, itemIndex)"
+                    class="repayment-form"
+                    (ngSubmit)="saveRepayment(row, item)">
+                    <app-category-select
+                      label="Place"
+                      placeholder="Where the money came back"
+                      [options]="walletNames()"
+                      [(ngModel)]="repaymentForm.place"
+                      name="repaymentPlace"
+                      iconSet="place"
+                      [disabled]="submitting()">
+                    </app-category-select>
+                    <p *ngIf="walletNames().length === 0" class="repayment-form__hint">
+                      Add a bank or wallet on the Settings tab before recording a repayment.
+                    </p>
+                    <div class="form-group">
+                      <label for="repayment-amount">Amount</label>
+                      <input
+                        id="repayment-amount"
+                        type="number"
+                        name="repaymentAmount"
+                        [(ngModel)]="repaymentForm.amount"
+                        min="0.01"
+                        step="0.01"
+                        [max]="item.amount"
+                        [disabled]="submitting()"
+                        required>
+                    </div>
+                    <app-date-field
+                      label="Date"
+                      name="repaymentDate"
+                      [(ngModel)]="repaymentForm.date"
+                      [required]="true"
+                      [disabled]="submitting()">
+                    </app-date-field>
+                    <p class="repayment-form__hint">
+                      Still owed {{ item.amount | currency }} for this lend. This returns the money to the place you pick.
+                    </p>
+                    <p *ngIf="repaymentError()" class="repayment-form__error">{{ repaymentError() }}</p>
+                    <div class="repayment-form__actions">
+                      <app-button type="submit" size="sm" variant="primary" [disabled]="submitting() || walletNames().length === 0">
+                        {{ submitting() ? 'Saving…' : 'Save repayment' }}
+                      </app-button>
+                      <app-button type="button" size="sm" variant="secondary" [disabled]="submitting()" (click)="cancelRepayment()">
+                        Cancel
+                      </app-button>
+                    </div>
+                  </form>
+                </li>
+              </ul>
             </li>
           </ul>
         </article>
@@ -322,6 +335,25 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
       flex-wrap: wrap;
       gap: var(--space-sm);
     }
+
+    .lend-list {
+      list-style: none;
+      margin: var(--space-sm) 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .lend-list__item {
+      padding-left: var(--space-sm);
+      border-left: 2px solid var(--color-border);
+    }
+
+    .lend-list__description {
+      font-weight: var(--font-weight-medium);
+      min-width: 0;
+    }
   `]
 })
 export class VisualizationComponent {
@@ -438,15 +470,13 @@ export class VisualizationComponent {
     return `${date} · ${due.account} · ${left}`;
   }
 
-  receivableMeta(row: AccountBreakdown): string {
-    const date = row.lastDate ? this.datePipe.transform(row.lastDate, 'mediumDate') ?? row.lastDate : '';
-    if (row.lastCategory && date) {
-      return `From ${row.lastCategory} · ${date}`;
-    }
-    if (row.lastCategory) {
-      return `From ${row.lastCategory}`;
-    }
-    return date || 'Outstanding';
+  receivableItemMeta(item: ReceivableItem): string {
+    const date = this.datePipe.transform(item.date, 'mediumDate') ?? item.date;
+    return item.account ? `From ${item.account} · ${date}` : date;
+  }
+
+  repaymentKey(row: AccountBreakdown, item: ReceivableItem, index: number): string {
+    return `${row.account}|${index}|${item.date}|${item.description}`;
   }
 
   balanceHint(): string {
@@ -475,17 +505,17 @@ export class VisualizationComponent {
     this.transactionService.shiftOverviewMonth(delta);
   }
 
-  startRepayment(row: AccountBreakdown) {
+  startRepayment(row: AccountBreakdown, item: ReceivableItem, index: number) {
     const wallets = this.walletNames();
-    const place = row.lastCategory && wallets.includes(row.lastCategory) ? row.lastCategory : (wallets[0] ?? '');
+    const place = wallets.includes(item.account) ? item.account : (wallets[0] ?? '');
     this.repaymentError.set(null);
     this.transactionService.clearSubmitError();
     this.repaymentForm = {
       place,
-      amount: row.amount,
+      amount: item.amount,
       date: todayIsoDate(),
     };
-    this.repaying.set(row.account);
+    this.repaying.set(this.repaymentKey(row, item, index));
   }
 
   cancelRepayment() {
@@ -494,9 +524,9 @@ export class VisualizationComponent {
     this.transactionService.clearSubmitError();
   }
 
-  saveRepayment(row: AccountBreakdown) {
+  saveRepayment(row: AccountBreakdown, item: ReceivableItem) {
     const amount = Number(this.repaymentForm.amount);
-    const owedCents = Math.round(row.amount * 100);
+    const owedCents = Math.round(item.amount * 100);
     const amountCents = Math.round(amount * 100);
 
     if (!this.repaymentForm.date.trim()) {
@@ -525,7 +555,9 @@ export class VisualizationComponent {
       category: row.account,
       type: 'income',
       amount,
-      description: 'Repayment',
+      description: item.description
+        ? `${REPAYMENT_DESCRIPTION_PREFIX}${item.description}`
+        : 'Repayment',
       account: this.repaymentForm.place,
       toAccount: null,
       repayment: true,
