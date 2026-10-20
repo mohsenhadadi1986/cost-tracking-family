@@ -69,6 +69,7 @@ export function createDatabase(
   ensureAccountKindColumns(db);
   ensureSettlementColumns(db);
   ensureTransferSupport(db);
+  ensureRepaymentColumn(db);
   ensureTaxTables(db);
   seedMissingDefaultCategories(db);
   seedMissingDefaultAccounts(db);
@@ -220,6 +221,12 @@ function ensureTransferSupport(db: Database.Database): void {
   });
 
   migrate();
+}
+
+function ensureRepaymentColumn(db: Database.Database): void {
+  if (!tableColumns(db, 'transactions').has('repayment')) {
+    db.exec(`ALTER TABLE transactions ADD COLUMN repayment INTEGER NOT NULL DEFAULT 0`);
+  }
 }
 
 function ensureSettlementColumns(db: Database.Database): void {

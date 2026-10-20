@@ -13,4 +13,5 @@ export interface Transaction {
   toAccount: string | null;
   settlementDate: string;
   settlementAccount: string;
+  repayment?: boolean;
 }

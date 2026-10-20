@@ -24,6 +24,7 @@ function transaction(partial: Partial<Transaction> & Pick<Transaction, 'id' | 'c
     settlementAccount: partial.account ?? 'ING Current Account',
     toAccount: null,
     ...partial,
+    repayment: partial.repayment ?? false,
   };
 }
 

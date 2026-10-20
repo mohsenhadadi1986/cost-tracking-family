@@ -4,11 +4,19 @@ export interface DailyTotal {
   expense: number;
 }
 
+export interface ReceivableItem {
+  description: string;
+  amount: number;
+  date: string;
+  account: string;
+}
+
 export interface AccountBreakdown {
   account: string;
   amount: number;
   lastDate?: string;
   lastCategory?: string;
+  items?: ReceivableItem[];
 }
 
 export interface CreditCardDue {

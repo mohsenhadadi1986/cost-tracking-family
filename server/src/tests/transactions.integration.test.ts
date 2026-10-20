@@ -200,6 +200,103 @@ describe('Transaction API integration', () => {
       assert.equal(summary.body.currentBalance, 200);
     });
 
+    it('deducts a loan from cash and returns a repayment to the chosen place', async () => {
+      const { app } = createTestApp(false);
+      const date = '2026-09-17';
+
+      const category = await request(app).post('/api/categories').send({
+        name: 'Lend Mohammad',
+        type: 'income',
+      });
+      assert.equal(category.status, 201);
+
+      const budget = await request(app).post('/api/transactions').send({
+        date,
+        category: 'Salary',
+        type: 'income',
+        amount: 500,
+        description: 'Starting cash',
+        account: 'Cash',
+      });
+      assert.equal(budget.status, 201);
+      assert.equal(budget.body.repayment, false);
+
+      const loan = await request(app).post('/api/transactions').send({
+        date,
+        category: 'Lend Mohammad',
+        type: 'income',
+        amount: 300,
+        description: 'Lent to Mohammad',
+        account: 'Cash',
+      });
+      assert.equal(loan.status, 201);
+      assert.equal(loan.body.repayment, false);
+
+      const lent = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate: '2026-09-01', endDate: '2026-09-30' });
+      assert.equal(lent.status, 200);
+      assert.equal(lent.body.totalIncome, 500);
+      assert.equal(
+        lent.body.accountBalances.find((row: { account: string }) => row.account === 'Cash')?.amount,
+        200
+      );
+      assert.equal(lent.body.receivableTotal, 300);
+
+      const repayment = await request(app).post('/api/transactions').send({
+        date: '2026-09-20',
+        category: 'Lend Mohammad',
+        type: 'income',
+        amount: 120,
+        description: 'Repayment',
+        account: 'Revolut',
+        repayment: true,
+      });
+      assert.equal(repayment.status, 201);
+      assert.equal(repayment.body.repayment, true);
+      assert.equal(repayment.body.account, 'Revolut');
+
+      const after = await request(app)
+        .get('/api/transactions/summary')
+        .query({ startDate: '2026-09-01', endDate: '2026-09-30' });
+      assert.equal(after.body.totalIncome, 500);
+      assert.equal(
+        after.body.accountBalances.find((row: { account: string }) => row.account === 'Cash')?.amount,
+        200
+      );
+      assert.equal(
+        after.body.accountBalances.find((row: { account: string }) => row.account === 'Revolut')?.amount,
+        120
+      );
+      assert.equal(after.body.currentBalance, 320);
+      assert.equal(after.body.receivableTotal, 180);
+      assert.equal(after.body.receivableBalances[0].account, 'Lend Mohammad');
+
+      const onCard = await request(app).post('/api/transactions').send({
+        date: '2026-09-21',
+        category: 'Lend Mohammad',
+        type: 'income',
+        amount: 10,
+        description: 'Repayment',
+        account: DEFAULT_CREDIT_CARD,
+        repayment: true,
+      });
+      assert.equal(onCard.status, 400);
+      assert.match(onCard.body.error, /not a credit card/);
+
+      const notALoan = await request(app).post('/api/transactions').send({
+        date: '2026-09-21',
+        category: 'Salary',
+        type: 'income',
+        amount: 10,
+        description: 'Not a repayment',
+        account: 'Cash',
+        repayment: true,
+      });
+      assert.equal(notALoan.status, 400);
+      assert.match(notALoan.body.error, /lend or loan category/);
+    });
+
     it('rejects a transfer that does not name two different cash places', async () => {
       const { app } = createTestApp(false);
       const base = {

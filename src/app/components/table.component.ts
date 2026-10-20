@@ -13,6 +13,7 @@ import { CategoryService } from '../services/category.service';
 import { TransactionService } from '../services/transaction.service';
 import { TRANSFER_CATEGORY, Transaction } from '../models/transaction.model';
 import { creditCardSettlementDate } from '../utils/credit-card';
+import { isReceivableCategory } from '../utils/period-totals';
 import {
   TABLE_PAGE_SIZES,
   TableSortKey,
@@ -270,7 +271,7 @@ import {
                     [class.income]="transaction.type === 'income'"
                     [class.expense]="transaction.type === 'expense'"
                     [class.transfer]="transaction.type === 'transfer'">
-                    {{transaction.type}}
+                    {{ transaction.repayment ? 'repayment' : transaction.type }}
                   </span>
                 </td>
                 <td
@@ -466,7 +467,7 @@ export class TableComponent {
     let totalExpense = 0;
 
     for (const transaction of rows) {
-      if (transaction.type === 'income') {
+      if (transaction.type === 'income' && !isReceivableCategory(transaction.category)) {
         totalIncome += transaction.amount;
       } else if (transaction.type === 'expense') {
         totalExpense += transaction.amount;
@@ -576,6 +577,7 @@ export class TableComponent {
       description: this.editForm.description.trim(),
       account: this.editForm.account,
       toAccount: this.editForm.type === 'transfer' ? this.editForm.toAccount : null,
+      repayment: this.editForm.type === 'income' && current.repayment === true,
     }).subscribe({
       next: () => this.cancelEdit()
     });

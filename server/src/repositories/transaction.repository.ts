@@ -11,7 +11,7 @@ import {
 } from '../validation/transaction.validation';
 
 const TRANSACTION_COLUMNS = `
-  id, date, category, type, amount, description, account, to_account, settlement_date, settlement_account
+  id, date, category, type, amount, description, account, to_account, settlement_date, settlement_account, repayment
 `;
 
 type TransactionRow = {
@@ -25,6 +25,7 @@ type TransactionRow = {
   to_account: string | null;
   settlement_date: string;
   settlement_account: string;
+  repayment: number;
 };
 
 export class TransactionRepository {
@@ -43,10 +44,10 @@ export class TransactionRepository {
     const row = this.db
       .prepare(`
         INSERT INTO transactions (
-          date, category, type, amount, description, account, to_account, settlement_date, settlement_account
+          date, category, type, amount, description, account, to_account, settlement_date, settlement_account, repayment
         )
         VALUES (
-          @date, @category, @type, @amount, @description, @account, @toAccount, @settlementDate, @settlementAccount
+          @date, @category, @type, @amount, @description, @account, @toAccount, @settlementDate, @settlementAccount, @repayment
         )
         RETURNING ${TRANSACTION_COLUMNS}
       `)
@@ -55,6 +56,7 @@ export class TransactionRepository {
         toAccount: normalized.toAccount || null,
         settlementDate: settlement.settlementDate,
         settlementAccount: settlement.settlementAccount,
+        repayment: normalized.repayment ? 1 : 0,
       }) as TransactionRow;
 
     return mapTransaction(row);
@@ -92,7 +94,8 @@ export class TransactionRepository {
             account = @account,
             to_account = @toAccount,
             settlement_date = @settlementDate,
-            settlement_account = @settlementAccount
+            settlement_account = @settlementAccount,
+            repayment = @repayment
         WHERE id = @id
         RETURNING ${TRANSACTION_COLUMNS}
       `)
@@ -102,6 +105,7 @@ export class TransactionRepository {
         toAccount: normalized.toAccount || null,
         settlementDate: settlement.settlementDate,
         settlementAccount: settlement.settlementAccount,
+        repayment: normalized.repayment ? 1 : 0,
       }) as TransactionRow | undefined;
 
     return row ? mapTransaction(row) : undefined;
@@ -191,5 +195,6 @@ function mapTransaction(row: TransactionRow): Transaction {
     toAccount: row.to_account,
     settlementDate: row.settlement_date ?? row.date,
     settlementAccount: row.settlement_account ?? row.account,
+    repayment: row.repayment === 1,
   };
 }

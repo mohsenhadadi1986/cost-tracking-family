@@ -9,7 +9,7 @@ export type SummaryTransaction = Pick<
   Transaction,
   'date' | 'category' | 'type' | 'amount' | 'account'
 > &
-  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount'>>;
+  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount' | 'repayment' | 'description' | 'id'>>;
 
 export type AccountSummaryMeta = {
   name: string;
@@ -122,6 +122,12 @@ export function getIncomeByCategory(transactions: SummaryTransaction[]): Record<
 
 export function isReceivableCategory(name: string): boolean {
   return /^(lend|loan)\b/i.test(name.trim());
+}
+
+export const REPAYMENT_DESCRIPTION_PREFIX = 'Repayment: ';
+
+function isLending(transaction: SummaryTransaction): boolean {
+  return isReceivableCategory(transaction.category) && !transaction.repayment;
 }
 
 export function getTotals(transactions: SummaryTransaction[]): {
@@ -292,10 +298,7 @@ export function getAccountBalances(
         && transaction.account === account
         && transaction.date <= asOfDate
       ) {
-        if (isReceivableCategory(transaction.category)) {
-          continue;
-        }
-        amount += transaction.amount;
+        amount += isLending(transaction) ? -transaction.amount : transaction.amount;
         related.push(transaction);
       } else if (
         transaction.type === 'expense' &&
@@ -406,32 +409,95 @@ export function getReceivableBalances(
   transactions: SummaryTransaction[],
   asOfDate: string = todayIsoDate()
 ): AccountBreakdown[] {
-  const grouped = new Map<string, { amount: number; related: SummaryTransaction[] }>();
+  const grouped = new Map<string, { lends: SummaryTransaction[]; repayments: SummaryTransaction[] }>();
 
   for (const transaction of transactions) {
-    if (!isReceivableCategory(transaction.category) || transaction.date > asOfDate) {
+    if (!isReceivableCategory(transaction.category) || transaction.date > asOfDate || transaction.type !== 'income') {
       continue;
     }
 
-    const current = grouped.get(transaction.category) ?? { amount: 0, related: [] };
-    current.amount += transaction.amount;
-    current.related.push(transaction);
+    const current = grouped.get(transaction.category) ?? { lends: [], repayments: [] };
+    if (transaction.repayment) {
+      current.repayments.push(transaction);
+    } else {
+      current.lends.push(transaction);
+    }
     grouped.set(transaction.category, current);
   }
 
   const rows = [...grouped.entries()]
-    .filter(([, value]) => value.amount !== 0)
     .map(([account, value]) => {
-      const latest = [...value.related].sort((left, right) => (left.date < right.date ? 1 : -1))[0];
+      const items = remainingLends(value.lends, value.repayments);
+      const latest = [...items].sort((left, right) => (left.date < right.date ? 1 : -1))[0];
       return {
         account,
-        amount: value.amount,
+        amount: roundCents(items.reduce((sum, item) => sum + item.amount, 0)),
         lastDate: latest?.date,
         lastCategory: latest?.account,
+        items,
       };
-    });
+    })
+    .filter(row => row.amount !== 0);
 
   return sortBreakdown(rows);
+}
+
+function remainingLends(
+  lends: SummaryTransaction[],
+  repayments: SummaryTransaction[]
+): NonNullable<AccountBreakdown['items']> {
+  const items = [...lends]
+    .sort((left, right) => {
+      if (left.date !== right.date) {
+        return left.date < right.date ? -1 : 1;
+      }
+      return (left.id ?? 0) - (right.id ?? 0);
+    })
+    .map(lend => ({
+      description: lend.description?.trim() ?? '',
+      amount: roundCents(lend.amount),
+      date: lend.date,
+      account: lend.account,
+    }));
+
+  const targeted = new Map<string, number>();
+  let generic = 0;
+
+  for (const repayment of repayments) {
+    const cents = Math.round(repayment.amount * 100);
+    const description = repayment.description?.trim() ?? '';
+    const target = description.startsWith(REPAYMENT_DESCRIPTION_PREFIX)
+      ? description.slice(REPAYMENT_DESCRIPTION_PREFIX.length)
+      : '';
+    if (target && items.some(item => item.description === target)) {
+      targeted.set(target, (targeted.get(target) ?? 0) + cents);
+    } else {
+      generic += cents;
+    }
+  }
+
+  for (const item of items) {
+    const available = targeted.get(item.description) ?? 0;
+    const itemCents = Math.round(item.amount * 100);
+    const used = Math.min(available, itemCents);
+    item.amount = roundCents((itemCents - used) / 100);
+    targeted.set(item.description, available - used);
+  }
+
+  generic += [...targeted.values()].reduce((sum, cents) => sum + cents, 0);
+
+  for (const item of items) {
+    const itemCents = Math.round(item.amount * 100);
+    const used = Math.min(generic, itemCents);
+    item.amount = roundCents((itemCents - used) / 100);
+    generic -= used;
+  }
+
+  return items.filter(item => item.amount !== 0).sort((left, right) => (left.date < right.date ? 1 : -1));
+}
+
+function roundCents(amount: number): number {
+  return Math.round(amount * 100) / 100;
 }
 
 function resolveAsOfDate(endDate?: string): string {

@@ -144,13 +144,13 @@ describe('period-totals', () => {
     assert.equal(after.categoryTotals['Transfer'], undefined);
   });
 
-  it('keeps lent money out of cash on hand', () => {
+  it('moves lent money out of cash on hand', () => {
     const transactions = [
       {
         date: '2026-09-17',
         category: 'Initial budget',
         type: 'income' as const,
-        amount: 200,
+        amount: 500,
         account: 'Cash',
       },
       {
@@ -158,6 +158,7 @@ describe('period-totals', () => {
         category: 'Lend Mohammad',
         type: 'income' as const,
         amount: 300,
+        description: 'Lent for the trip',
         account: 'Cash',
       },
     ];
@@ -172,8 +173,152 @@ describe('period-totals', () => {
     assert.equal(summary.receivableBalances[0]?.account, 'Lend Mohammad');
     assert.equal(summary.receivableBalances[0]?.amount, 300);
     assert.equal(summary.receivableBalances[0]?.lastCategory, 'Cash');
-    assert.equal(summary.totalIncome, 200);
-    assert.deepEqual(summary.incomeByCategory, { 'Initial budget': 200 });
+    assert.equal(summary.receivableBalances[0]?.items?.[0]?.description, 'Lent for the trip');
+    assert.equal(summary.receivableBalances[0]?.items?.[0]?.amount, 300);
+    assert.equal(summary.totalIncome, 500);
+    assert.deepEqual(summary.incomeByCategory, { 'Initial budget': 500 });
+  });
+
+  it('lists every lend with its description and sums them', () => {
+    const transactions = [
+      {
+        date: '2026-09-17',
+        category: 'Initial budget',
+        type: 'income' as const,
+        amount: 800,
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-17',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 300,
+        description: 'Lent for the trip',
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-18',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 50,
+        description: 'Lunch',
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-19',
+        category: 'Lend Sara',
+        type: 'income' as const,
+        amount: 80,
+        description: 'Train ticket',
+        account: 'Revolut',
+      },
+    ];
+
+    const summary = buildSummary(transactions, '2026-09-01', '2026-09-30', {
+      asOfDate: '2026-09-19',
+    });
+
+    assert.equal(summary.accountBalances.find(row => row.account === 'Cash')?.amount, 450);
+    assert.equal(summary.accountBalances.find(row => row.account === 'Revolut')?.amount, -80);
+    assert.equal(summary.receivableTotal, 430);
+    const mohammad = summary.receivableBalances.find(row => row.account === 'Lend Mohammad');
+    const sara = summary.receivableBalances.find(row => row.account === 'Lend Sara');
+    assert.equal(mohammad?.amount, 350);
+    assert.deepEqual(
+      mohammad?.items?.map(item => [item.description, item.amount]),
+      [['Lunch', 50], ['Lent for the trip', 300]]
+    );
+    assert.equal(sara?.amount, 80);
+    assert.equal(sara?.items?.[0]?.description, 'Train ticket');
+    assert.equal(sara?.items?.[0]?.account, 'Revolut');
+
+    const afterLunch = buildSummary(
+      [
+        ...transactions,
+        {
+          date: '2026-09-20',
+          category: 'Lend Mohammad',
+          type: 'income' as const,
+          amount: 50,
+          description: 'Repayment: Lunch',
+          account: 'Cash',
+          repayment: true,
+        },
+      ],
+      '2026-09-01',
+      '2026-09-30',
+      { asOfDate: '2026-09-20' }
+    );
+
+    const stillMohammad = afterLunch.receivableBalances.find(row => row.account === 'Lend Mohammad');
+    assert.equal(afterLunch.receivableTotal, 380);
+    assert.equal(stillMohammad?.amount, 300);
+    assert.deepEqual(stillMohammad?.items?.map(item => item.description), ['Lent for the trip']);
+    assert.equal(afterLunch.accountBalances.find(row => row.account === 'Cash')?.amount, 500);
+  });
+
+  it('puts a repayment back into the chosen place and reduces what is owed', () => {
+    const transactions = [
+      {
+        date: '2026-09-17',
+        category: 'Initial budget',
+        type: 'income' as const,
+        amount: 500,
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-17',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 300,
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-20',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 120,
+        account: 'Revolut',
+        repayment: true,
+      },
+    ];
+
+    const summary = buildSummary(transactions, '2026-09-01', '2026-09-30', {
+      asOfDate: '2026-09-20',
+    });
+
+    assert.equal(summary.accountBalances.find(row => row.account === 'Cash')?.amount, 200);
+    assert.equal(summary.accountBalances.find(row => row.account === 'Revolut')?.amount, 120);
+    assert.equal(summary.currentBalance, 320);
+    assert.equal(summary.receivableTotal, 180);
+    assert.equal(summary.receivableBalances[0]?.account, 'Lend Mohammad');
+    assert.equal(summary.receivableBalances[0]?.amount, 180);
+    assert.equal(summary.receivableBalances[0]?.lastCategory, 'Cash');
+    assert.equal(summary.totalIncome, 500);
+    assert.equal(summary.incomeByAccount.find(row => row.account === 'Revolut'), undefined);
+
+    const paidOff = buildSummary(
+      [
+        ...transactions,
+        {
+          date: '2026-09-21',
+          category: 'Lend Mohammad',
+          type: 'income' as const,
+          amount: 180,
+          account: 'Cash',
+          repayment: true,
+        },
+      ],
+      '2026-09-01',
+      '2026-09-30',
+      { asOfDate: '2026-09-21' }
+    );
+
+    assert.equal(paidOff.receivableTotal, 0);
+    assert.equal(paidOff.receivableBalances.length, 0);
+    assert.equal(paidOff.accountBalances.find(row => row.account === 'Cash')?.amount, 380);
+    assert.equal(paidOff.currentBalance, 500);
+    assert.equal(paidOff.totalIncome, 500);
   });
 
   it('uses the selected month for plans even when today is earlier', () => {

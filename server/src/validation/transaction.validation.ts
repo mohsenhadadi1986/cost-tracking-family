@@ -1,9 +1,14 @@
 import { TRANSFER_CATEGORY, Transaction, TransactionType } from '../models/transaction.model';
 import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
+import { isReceivableCategory } from '../services/period-totals';
 
-export type CreateTransactionInput = Omit<Transaction, 'id' | 'settlementDate' | 'settlementAccount' | 'toAccount'> & {
+export type CreateTransactionInput = Omit<
+  Transaction,
+  'id' | 'settlementDate' | 'settlementAccount' | 'toAccount' | 'repayment'
+> & {
   toAccount?: string | null;
+  repayment?: boolean;
 };
 
 const TRANSACTION_TYPES: TransactionType[] = ['expense', 'income', 'transfer'];
@@ -36,6 +41,7 @@ export function parseTransactionWriteInput(body: unknown): CreateTransactionInpu
     description: typeof record.description === 'string' ? record.description : '',
     account: typeof record.account === 'string' ? record.account : '',
     toAccount: typeof record.toAccount === 'string' ? record.toAccount.trim() : null,
+    repayment: record.repayment === true,
   };
 }
 
@@ -72,6 +78,17 @@ export function validateTransactionInput(
   if (!categoryRepository.existsByNameAndType(input.category, input.type)) {
     const names = categoryRepository.findNamesByType(input.type);
     throw new Error(`category must be one of: ${names.join(', ')}`);
+  }
+
+  if (input.repayment) {
+    if (input.type !== 'income' || !isReceivableCategory(input.category)) {
+      throw new Error('repayment is only for income in a lend or loan category');
+    }
+    const place = assertKnownPlace(input.account, accountRepository, 'account');
+    if (place.kind === 'credit') {
+      throw new Error('repayments go into a bank or wallet, not a credit card');
+    }
+    return;
   }
 
   assertKnownPlace(input.account, accountRepository, 'account');
@@ -122,6 +139,7 @@ export function normalizeTransactionWrite(input: CreateTransactionInput): Create
       account,
       category: TRANSFER_CATEGORY,
       toAccount: (input.toAccount ?? '').trim(),
+      repayment: false,
     };
   }
 
@@ -129,6 +147,7 @@ export function normalizeTransactionWrite(input: CreateTransactionInput): Create
     ...input,
     account,
     toAccount: null,
+    repayment: input.repayment === true,
   };
 }
 
