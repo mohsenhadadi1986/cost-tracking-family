@@ -9,7 +9,7 @@ export type SummaryTransaction = Pick<
   Transaction,
   'date' | 'category' | 'type' | 'amount' | 'account'
 > &
-  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount'>>;
+  Partial<Pick<Transaction, 'settlementDate' | 'settlementAccount' | 'toAccount' | 'repayment'>>;
 
 export type AccountSummaryMeta = {
   name: string;
@@ -122,6 +122,10 @@ export function getIncomeByCategory(transactions: SummaryTransaction[]): Record<
 
 export function isReceivableCategory(name: string): boolean {
   return /^(lend|loan)\b/i.test(name.trim());
+}
+
+function isLending(transaction: SummaryTransaction): boolean {
+  return isReceivableCategory(transaction.category) && !transaction.repayment;
 }
 
 export function getTotals(transactions: SummaryTransaction[]): {
@@ -292,7 +296,7 @@ export function getAccountBalances(
         && transaction.account === account
         && transaction.date <= asOfDate
       ) {
-        amount += isReceivableCategory(transaction.category) ? -transaction.amount : transaction.amount;
+        amount += isLending(transaction) ? -transaction.amount : transaction.amount;
         related.push(transaction);
       } else if (
         transaction.type === 'expense' &&
@@ -411,12 +415,15 @@ export function getReceivableBalances(
     }
 
     const current = grouped.get(transaction.category) ?? { amount: 0, related: [] };
-    current.amount += transaction.amount;
-    current.related.push(transaction);
+    current.amount += transaction.repayment ? -transaction.amount : transaction.amount;
+    if (!transaction.repayment) {
+      current.related.push(transaction);
+    }
     grouped.set(transaction.category, current);
   }
 
   const rows = [...grouped.entries()]
+    .map(([account, value]) => [account, { ...value, amount: Math.round(value.amount * 100) / 100 }] as const)
     .filter(([, value]) => value.amount !== 0)
     .map(([account, value]) => {
       const latest = [...value.related].sort((left, right) => (left.date < right.date ? 1 : -1))[0];

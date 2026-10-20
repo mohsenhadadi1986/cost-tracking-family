@@ -1,17 +1,29 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { FilterBannerComponent } from './filter-banner.component';
 import { ButtonComponent } from './ui/button.component';
+import { CategorySelectComponent } from './ui/category-select.component';
+import { DateFieldComponent } from './ui/date-field.component';
 import { GlyphComponent } from './ui/glyph.component';
 import { AccountBreakdown, CreditCardDue, PlannedDue } from '../models/transaction-summary.model';
 import { AccountService } from '../services/account.service';
 import { TransactionService } from '../services/transaction.service';
+import { todayIsoDate } from '../utils/credit-card';
 import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../utils/overview-interval';
 
 @Component({
   selector: 'app-visualization',
   standalone: true,
-  imports: [CommonModule, FilterBannerComponent, ButtonComponent, GlyphComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FilterBannerComponent,
+    ButtonComponent,
+    CategorySelectComponent,
+    DateFieldComponent,
+    GlyphComponent,
+  ],
   providers: [DatePipe],
   template: `
     <h2 class="page-title">Overview</h2>
@@ -106,6 +118,65 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                 <span class="place-list__amount amount-income">{{ row.amount | currency }}</span>
               </div>
               <p class="place-list__meta">{{ receivableMeta(row) }}</p>
+              <div class="place-list__actions" *ngIf="repaying() !== row.account">
+                <app-button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  [disabled]="submitting()"
+                  (click)="startRepayment(row)">
+                  Repayment done
+                </app-button>
+              </div>
+              <form
+                *ngIf="repaying() === row.account"
+                class="repayment-form"
+                (ngSubmit)="saveRepayment(row)">
+                <app-category-select
+                  label="Place"
+                  placeholder="Where the money came back"
+                  [options]="walletNames()"
+                  [(ngModel)]="repaymentForm.place"
+                  name="repaymentPlace"
+                  iconSet="place"
+                  [disabled]="submitting()">
+                </app-category-select>
+                <p *ngIf="walletNames().length === 0" class="repayment-form__hint">
+                  Add a bank or wallet on the Settings tab before recording a repayment.
+                </p>
+                <div class="form-group">
+                  <label for="repayment-amount">Amount</label>
+                  <input
+                    id="repayment-amount"
+                    type="number"
+                    name="repaymentAmount"
+                    [(ngModel)]="repaymentForm.amount"
+                    min="0.01"
+                    step="0.01"
+                    [max]="row.amount"
+                    [disabled]="submitting()"
+                    required>
+                </div>
+                <app-date-field
+                  label="Date"
+                  name="repaymentDate"
+                  [(ngModel)]="repaymentForm.date"
+                  [required]="true"
+                  [disabled]="submitting()">
+                </app-date-field>
+                <p class="repayment-form__hint">
+                  Still owed {{ row.amount | currency }}. This returns the money to the place you pick.
+                </p>
+                <p *ngIf="repaymentError()" class="repayment-form__error">{{ repaymentError() }}</p>
+                <div class="repayment-form__actions">
+                  <app-button type="submit" size="sm" variant="primary" [disabled]="submitting() || walletNames().length === 0">
+                    {{ submitting() ? 'Saving…' : 'Save repayment' }}
+                  </app-button>
+                  <app-button type="button" size="sm" variant="secondary" [disabled]="submitting()" (click)="cancelRepayment()">
+                    Cancel
+                  </app-button>
+                </div>
+              </form>
             </li>
           </ul>
         </article>
@@ -221,7 +292,37 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
         </div>
       </section>
     </ng-container>
-  `
+  `,
+  styles: [`
+    .place-list__actions {
+      margin-top: var(--space-sm);
+    }
+
+    .repayment-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+    }
+
+    .repayment-form__hint {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-muted);
+    }
+
+    .repayment-form__error {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-error-text);
+    }
+
+    .repayment-form__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+  `]
 })
 export class VisualizationComponent {
   readonly intervals: Array<{ id: OverviewInterval; label: string }> = [
@@ -280,6 +381,22 @@ export class VisualizationComponent {
       .map(([name, amount]) => ({ name, amount }))
       .sort((left, right) => right.amount - left.amount)
   );
+
+  walletNames = computed(() =>
+    this.accountService
+      .getAccounts()()
+      .filter(account => account.kind !== 'credit')
+      .map(account => account.name)
+  );
+
+  submitting = this.transactionService.getSubmitting();
+  repaying = signal<string | null>(null);
+  repaymentError = signal<string | null>(null);
+  repaymentForm: { place: string; amount: number; date: string } = {
+    place: '',
+    amount: 0,
+    date: todayIsoDate(),
+  };
 
   constructor(
     private transactionService: TransactionService,
@@ -356,5 +473,65 @@ export class VisualizationComponent {
     }
 
     this.transactionService.shiftOverviewMonth(delta);
+  }
+
+  startRepayment(row: AccountBreakdown) {
+    const wallets = this.walletNames();
+    const place = row.lastCategory && wallets.includes(row.lastCategory) ? row.lastCategory : (wallets[0] ?? '');
+    this.repaymentError.set(null);
+    this.transactionService.clearSubmitError();
+    this.repaymentForm = {
+      place,
+      amount: row.amount,
+      date: todayIsoDate(),
+    };
+    this.repaying.set(row.account);
+  }
+
+  cancelRepayment() {
+    this.repaying.set(null);
+    this.repaymentError.set(null);
+    this.transactionService.clearSubmitError();
+  }
+
+  saveRepayment(row: AccountBreakdown) {
+    const amount = Number(this.repaymentForm.amount);
+    const owedCents = Math.round(row.amount * 100);
+    const amountCents = Math.round(amount * 100);
+
+    if (!this.repaymentForm.date.trim()) {
+      this.repaymentError.set('Date is required.');
+      return;
+    }
+
+    if (!this.repaymentForm.place.trim()) {
+      this.repaymentError.set('Choose the place the money came back to.');
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amountCents <= 0) {
+      this.repaymentError.set('Amount must be greater than zero.');
+      return;
+    }
+
+    if (amountCents > owedCents) {
+      this.repaymentError.set('Amount is more than they still owe.');
+      return;
+    }
+
+    this.repaymentError.set(null);
+    this.transactionService.addTransaction({
+      date: this.repaymentForm.date,
+      category: row.account,
+      type: 'income',
+      amount,
+      description: 'Repayment',
+      account: this.repaymentForm.place,
+      toAccount: null,
+      repayment: true,
+    }).subscribe({
+      next: () => this.cancelRepayment(),
+      error: () => this.repaymentError.set(this.transactionService.getSubmitError()() ?? 'Could not save the repayment.'),
+    });
   }
 }

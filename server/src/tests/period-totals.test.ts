@@ -176,6 +176,70 @@ describe('period-totals', () => {
     assert.deepEqual(summary.incomeByCategory, { 'Initial budget': 500 });
   });
 
+  it('puts a repayment back into the chosen place and reduces what is owed', () => {
+    const transactions = [
+      {
+        date: '2026-09-17',
+        category: 'Initial budget',
+        type: 'income' as const,
+        amount: 500,
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-17',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 300,
+        account: 'Cash',
+      },
+      {
+        date: '2026-09-20',
+        category: 'Lend Mohammad',
+        type: 'income' as const,
+        amount: 120,
+        account: 'Revolut',
+        repayment: true,
+      },
+    ];
+
+    const summary = buildSummary(transactions, '2026-09-01', '2026-09-30', {
+      asOfDate: '2026-09-20',
+    });
+
+    assert.equal(summary.accountBalances.find(row => row.account === 'Cash')?.amount, 200);
+    assert.equal(summary.accountBalances.find(row => row.account === 'Revolut')?.amount, 120);
+    assert.equal(summary.currentBalance, 320);
+    assert.equal(summary.receivableTotal, 180);
+    assert.equal(summary.receivableBalances[0]?.account, 'Lend Mohammad');
+    assert.equal(summary.receivableBalances[0]?.amount, 180);
+    assert.equal(summary.receivableBalances[0]?.lastCategory, 'Cash');
+    assert.equal(summary.totalIncome, 500);
+    assert.equal(summary.incomeByAccount.find(row => row.account === 'Revolut'), undefined);
+
+    const paidOff = buildSummary(
+      [
+        ...transactions,
+        {
+          date: '2026-09-21',
+          category: 'Lend Mohammad',
+          type: 'income' as const,
+          amount: 180,
+          account: 'Cash',
+          repayment: true,
+        },
+      ],
+      '2026-09-01',
+      '2026-09-30',
+      { asOfDate: '2026-09-21' }
+    );
+
+    assert.equal(paidOff.receivableTotal, 0);
+    assert.equal(paidOff.receivableBalances.length, 0);
+    assert.equal(paidOff.accountBalances.find(row => row.account === 'Cash')?.amount, 380);
+    assert.equal(paidOff.currentBalance, 500);
+    assert.equal(paidOff.totalIncome, 500);
+  });
+
   it('uses the selected month for plans even when today is earlier', () => {
     const summary = buildSummary([], '2026-10-01', '2026-10-31', {
       asOfDate: '2026-09-17',

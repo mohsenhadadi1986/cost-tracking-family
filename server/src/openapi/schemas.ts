@@ -39,6 +39,10 @@ const createTransactionRequestProperties = {
     nullable: true,
     description: 'Destination place when type is transfer. Null for income and expense.',
   },
+  repayment: {
+    type: 'boolean',
+    description: 'True when an income in a lend/loan category is money paid back into this place. Ignored otherwise.',
+  },
 };
 
 export function getOpenApiSchemas() {
@@ -55,7 +59,7 @@ export function getOpenApiSchemas() {
     },
     Transaction: {
       type: 'object',
-      required: ['id', 'date', 'category', 'type', 'amount', 'description', 'account', 'toAccount', 'settlementDate', 'settlementAccount'],
+      required: ['id', 'date', 'category', 'type', 'amount', 'description', 'account', 'toAccount', 'settlementDate', 'settlementAccount', 'repayment'],
       properties: {
         id: { type: 'integer' },
         ...createTransactionRequestProperties,
