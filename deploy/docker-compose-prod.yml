@@ -1,7 +1,11 @@
 # Family expense app: frontend + backend only.
-# Joins QuickDish's docker network so nginx-proxy can route family.ai-eos.it.
+# Joins QuickDish's docker network so nginx-proxy can route family.ai-eos.it,
+# and also joins the standalone `edge` network so edge-nginx can reach the
+# same unique container names. Today's public proxy stays nginx-proxy.
 # Run from this directory: cd deploy && docker compose -f docker-compose-prod.yml up -d --build
-# Requires QuickDish stack running (external network quickdish_default).
+# Requires external networks:
+#   quickdish_default — created by the QuickDish stack
+#   edge — `docker network create edge` (must exist before this compose is merged)
 
 name: cost-tracking-family
 
@@ -21,6 +25,9 @@ services:
       - CURSOR_API_KEY=${CURSOR_API_KEY}
     volumes:
       - sqlite_data:/data
+    networks:
+      - default
+      - edge
 
   frontend:
     build:
@@ -30,6 +37,9 @@ services:
     restart: always
     expose:
       - "80"
+    networks:
+      - default
+      - edge
 
 volumes:
   sqlite_data:
@@ -37,4 +47,7 @@ volumes:
 networks:
   default:
     name: quickdish_default
+    external: true
+  edge:
+    name: edge
     external: true

@@ -31,6 +31,22 @@ jobs:
             prev=$(git rev-parse HEAD)
             git pull --ff-only origin main
 
+            # Copy the helper before any rollback reset so it still exists after
+            # git reset --hard to a commit that does not contain the file.
+            proxy_reload=""
+            if [ -f "$root/deploy/reload-public-proxy.sh" ]; then
+              proxy_reload=$(mktemp)
+              cp "$root/deploy/reload-public-proxy.sh" "$proxy_reload"
+            fi
+
+            reload_public_proxy() {
+              if [ -n "${proxy_reload}" ] && [ -f "$proxy_reload" ]; then
+                bash "$proxy_reload" || echo "public proxy reload failed; continuing"
+              else
+                echo "public proxy reload helper not available; continuing"
+              fi
+            }
+
             rollback() {
               echo "family health failed, restoring $prev"
               echo "SQLite may already contain schema changes from the new process. This restores the previous code."
@@ -38,6 +54,7 @@ jobs:
               git reset --hard "$prev"
               cd "$root/deploy"
               docker compose -f docker-compose-prod.yml up -d --build
+              reload_public_proxy
             }
 
             cd "$root/deploy"
@@ -52,6 +69,8 @@ jobs:
               rollback
               exit 1
             fi
+
+            reload_public_proxy
 
             ok=0
             for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
