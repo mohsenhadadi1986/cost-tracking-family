@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Reload the public nginx after app containers are recreated.
+# Reload each public nginx that is running after app containers are recreated.
 # Recreate changes container IPs; the current nginx-proxy family config uses a
 # static `upstream` that caches those IPs until nginx reloads (risk of 502s).
-# Prefer the standalone edge-nginx; otherwise reload today's nginx-proxy.
+# During switch-over, edge-nginx may be running unpublished while nginx-proxy
+# is still live, so reload every matching container independently.
 # Always exit 0 so a deploy never fails on this step.
 
 set -u
@@ -24,12 +25,18 @@ reload_nginx() {
   fi
 }
 
-if container_running edge-nginx; then
-  reload_nginx edge-nginx
-elif container_running nginx-proxy; then
-  reload_nginx nginx-proxy
-else
-  echo "no public proxy container (edge-nginx or nginx-proxy) is running; continuing"
+reloaded=0
+for name in nginx-proxy edge-nginx; do
+  if container_running "$name"; then
+    reload_nginx "$name"
+    reloaded=1
+  else
+    echo "${name} is not running; skipping"
+  fi
+done
+
+if [ "$reloaded" -eq 0 ]; then
+  echo "no public proxy container (nginx-proxy or edge-nginx) is running; continuing"
 fi
 
 exit 0
