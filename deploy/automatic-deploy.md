@@ -33,7 +33,7 @@ One VPS, one public proxy, three apps:
 | cost-tracking-family | `/opt/apps/cost-tracking-family` | `main` | `https://family.ai-eos.it` |
 | zenner-heating-monitor | `/opt/apps/zenner-heating-monitor` | `raspberry-integration` | `https://zenner.ai-eos.it` |
 
-QuickDish owns nginx on ports 80 and 443. Family and Zenner join the Docker network `quickdish_default`. A family or Zenner deploy does not restart nginx. A QuickDish deploy rebuilds `frontend` and `backend`, then runs `deploy/run-migration.sh`. It does not run `./deploy-prod.sh`, because that script stops the whole stack, including the proxy the other two sites use.
+QuickDish owns nginx on ports 80 and 443 today (`nginx-proxy`). Family and Zenner join the Docker network `quickdish_default`. Family also joins the external network `edge` (`docker network create edge` on the VPS before this compose is merged) so a standalone `edge-nginx` can reach `cost-tracking-backend` and `cost-tracking-frontend` by those names. After a successful family `up -d`, the workflow reloads each of `nginx-proxy` and `edge-nginx` that is running (independently; a failed reload of one does not skip the other). If neither is running it logs and continues. That reload never fails the deploy. Reloading both matters during switch-over, when unpublished `edge-nginx` may already be running while `nginx-proxy` is still live with static upstreams. A QuickDish deploy rebuilds `frontend` and `backend`, then runs `deploy/run-migration.sh`. It does not run `./deploy-prod.sh`, because that script stops the whole stack, including the proxy the other two sites use.
 
 A push to any other branch does nothing. The workflow file only listens to the branch in the table.
 
@@ -171,8 +171,9 @@ The switch happens only after the image builds. If the new app then fails its he
 
 1. Build both images.
 2. `docker compose up -d`. The new backend can change the SQLite file as soon as the process starts.
-3. Ask `cost-tracking-backend` for `http://127.0.0.1:3000/api/health`. The public site asks for a password, so the check talks to the container.
-4. If that check fails, restore the saved commit and `up -d --build` again. The SQLite file may already contain the new schema. Restoring the code does not undo those table changes.
+3. Reload each public proxy that is running (`deploy/reload-public-proxy.sh`): `nginx-proxy` and `edge-nginx` independently. For each running proxy, `nginx -t` must pass before reload; a failed test logs a warning and skips that proxy. A failed reload of one does not skip the other or fail the job. If neither is running, log and continue.
+4. Ask `cost-tracking-backend` for `http://127.0.0.1:3000/api/health`. The public site asks for a password, so the check talks to the container.
+5. If that check fails, restore the saved commit and `up -d --build` again, then run the same proxy reload. The SQLite file may already contain the new schema. Restoring the code does not undo those table changes.
 
 **zenner-heating-monitor**
 
@@ -208,7 +209,7 @@ Push the repos one at a time the first time you turn this on. Order: family, the
 - It will not deploy a branch that is not in the table.
 - It will not run `docker compose down` or `down -v`.
 - It will not delete database volumes.
-- It will not restart `nginx-proxy`.
+- It will not recreate or restart the public proxy containers. After a successful family `up -d` it reloads each of `nginx-proxy` and `edge-nginx` that is running. A missing proxy or a failed reload is logged and the job continues.
 - It will not change `.env` files or Basic Auth passwords.
 - It will not restart the Zenner collector on the Raspberry Pi.
 
@@ -245,6 +246,7 @@ A red run that printed `restoring` has already tried to put the previous contain
 | Path | Role |
 |---|---|
 | `.github/workflows/deploy.yml` | The job GitHub runs on push |
+| `deploy/reload-public-proxy.sh` | Reload each running `nginx-proxy` and `edge-nginx` after containers are recreated |
 | `deploy/automatic-deploy.md` | This note |
-| `deploy/README.md` | Manual first-time install, TLS, and nginx |
+| `deploy/README.md` | Manual first-time install, TLS, nginx, and the `edge` network prerequisite |
 | `deploy/.env` | Production secrets. On the server only. Not in git |

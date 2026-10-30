@@ -2,20 +2,32 @@
 
 This app shares the QuickDish VPS edge (`nginx-proxy` on ports 80/443). It does **not** bind public ports. Traffic for **`https://family.ai-eos.it`** is routed by QuickDish nginx with **HTTP Basic Auth**. **`https://ai-eos.it`** and **`www`** are the AEOS platform.
 
+Containers also join a standalone Docker network named `edge` so a future public proxy (`edge-nginx`) can reach `cost-tracking-backend:3000` and `cost-tracking-frontend:80` by those unique names. Today's routing and ports stay on `nginx-proxy`.
+
 ## Prerequisites
 
 1. QuickDish production stack is already running (`quickdish_default` Docker network exists).
-2. DNS: **A** record **`family.ai-eos.it`** → same VPS IP as QuickDish. Apex **`ai-eos.it`** and **`www`** stay on that IP and serve AEOS.
-3. Docker Compose v2 on the VPS.
-4. Repo on the server next to QuickDish (or anywhere; compose only needs this project + the external network).
+2. External Docker network `edge` exists on the VPS. Create it once before this compose is merged or used in production:
+
+   ```bash
+   docker network create edge
+   ```
+
+   `docker compose up` fails if `edge` is missing (`external: true`). Skip this command if the network already exists.
+3. DNS: **A** record **`family.ai-eos.it`** → same VPS IP as QuickDish. Apex **`ai-eos.it`** and **`www`** stay on that IP and serve AEOS.
+4. Docker Compose v2 on the VPS.
+5. Repo on the server next to QuickDish (or anywhere; compose only needs this project + the external networks).
 
 ## Architecture
 
 ```
 Internet :80/:443
         │
-   nginx-proxy (QuickDish)
-        ├── quickdishapp.com     → QuickDish
+   nginx-proxy (QuickDish)          ← today's public proxy
+   edge-nginx (standalone, ready)   ← not the live edge yet
+        │
+        ├── both proxies resolve unique container names
+        ├── family containers join quickdish_default AND edge
         ├── family.ai-eos.it + Basic Auth
         │       ├── /api/ → cost-tracking-backend:3000
         │       └── /     → cost-tracking-frontend:80
@@ -47,11 +59,12 @@ cd /path/to/cost-tracking-family/deploy
 docker compose -f docker-compose-prod.yml up -d --build
 ```
 
-Confirm containers are on the shared network:
+Confirm containers are on both shared networks:
 
 ```bash
 docker network inspect quickdish_default --format '{{range .Containers}}{{.Name}} {{end}}'
-# should list cost-tracking-backend and cost-tracking-frontend among QuickDish services
+docker network inspect edge --format '{{range .Containers}}{{.Name}} {{end}}'
+# both should list cost-tracking-backend and cost-tracking-frontend
 ```
 
 ## 3 — Enable family routing on nginx (HTTP bootstrap)
@@ -135,7 +148,10 @@ Also confirm `https://quickdishapp.com` and `https://zenner.ai-eos.it/api/v1/hea
 ```bash
 cd /path/to/cost-tracking-family/deploy
 docker compose -f docker-compose-prod.yml up -d --build
+bash reload-public-proxy.sh
 ```
+
+Recreating the containers can change their IPs. Today's `nginx-proxy` family config uses a static `upstream` that caches those IPs until nginx reloads, which can 502 until then. During switch-over, unpublished `edge-nginx` may already be running while `nginx-proxy` is still live, so `reload-public-proxy.sh` reloads **each** of `nginx-proxy` and `edge-nginx` that is running (independently; a failed reload of one does not skip the other). For each running proxy it runs `nginx -t` first and only reloads if that config test passes; otherwise it logs a warning and skips that proxy. If neither is running it logs and continues. It never fails the redeploy. Automatic deploy runs the same helper after a successful `up -d`.
 
 ## Backup SQLite
 
