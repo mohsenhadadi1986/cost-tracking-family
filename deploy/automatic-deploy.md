@@ -171,7 +171,7 @@ The switch happens only after the image builds. If the new app then fails its he
 
 1. Build both images.
 2. `docker compose up -d`. The new backend can change the SQLite file as soon as the process starts.
-3. Reload each public proxy that is running (`deploy/reload-public-proxy.sh`): `nginx-proxy` and `edge-nginx` independently. A failed reload of one does not skip the other or fail the job. If neither is running, log and continue.
+3. Reload each public proxy that is running (`deploy/reload-public-proxy.sh`): `nginx-proxy` and `edge-nginx` independently. For each running proxy, `nginx -t` must pass before reload; a failed test logs a warning and skips that proxy. A failed reload of one does not skip the other or fail the job. If neither is running, log and continue.
 4. Ask `cost-tracking-backend` for `http://127.0.0.1:3000/api/health`. The public site asks for a password, so the check talks to the container.
 5. If that check fails, restore the saved commit and `up -d --build` again, then run the same proxy reload. The SQLite file may already contain the new schema. Restoring the code does not undo those table changes.
 

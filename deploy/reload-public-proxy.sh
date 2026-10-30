@@ -4,6 +4,7 @@
 # static `upstream` that caches those IPs until nginx reloads (risk of 502s).
 # During switch-over, edge-nginx may be running unpublished while nginx-proxy
 # is still live, so reload every matching container independently.
+# For each running proxy, `nginx -t` must pass before `nginx -s reload`.
 # Always exit 0 so a deploy never fails on this step.
 
 set -u
@@ -17,6 +18,11 @@ container_running() {
 
 reload_nginx() {
   local name="$1"
+  echo "testing public proxy config ${name}"
+  if ! docker exec "$name" nginx -t; then
+    echo "warning: ${name} config test failed; skipping reload"
+    return 0
+  fi
   echo "reloading public proxy ${name}"
   if docker exec "$name" nginx -s reload; then
     echo "reloaded ${name}"

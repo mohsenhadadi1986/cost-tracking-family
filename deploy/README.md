@@ -151,7 +151,7 @@ docker compose -f docker-compose-prod.yml up -d --build
 bash reload-public-proxy.sh
 ```
 
-Recreating the containers can change their IPs. Today's `nginx-proxy` family config uses a static `upstream` that caches those IPs until nginx reloads, which can 502 until then. During switch-over, unpublished `edge-nginx` may already be running while `nginx-proxy` is still live, so `reload-public-proxy.sh` reloads **each** of `nginx-proxy` and `edge-nginx` that is running (independently; a failed reload of one does not skip the other). If neither is running it logs and continues. It never fails the redeploy. Automatic deploy runs the same helper after a successful `up -d`.
+Recreating the containers can change their IPs. Today's `nginx-proxy` family config uses a static `upstream` that caches those IPs until nginx reloads, which can 502 until then. During switch-over, unpublished `edge-nginx` may already be running while `nginx-proxy` is still live, so `reload-public-proxy.sh` reloads **each** of `nginx-proxy` and `edge-nginx` that is running (independently; a failed reload of one does not skip the other). For each running proxy it runs `nginx -t` first and only reloads if that config test passes; otherwise it logs a warning and skips that proxy. If neither is running it logs and continues. It never fails the redeploy. Automatic deploy runs the same helper after a successful `up -d`.
 
 ## Backup SQLite
 
