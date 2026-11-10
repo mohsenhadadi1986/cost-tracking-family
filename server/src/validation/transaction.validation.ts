@@ -101,7 +101,7 @@ function validateTransfer(input: CreateTransactionInput, accountRepository: Acco
     throw new Error('toAccount is required');
   }
 
-  const destination = assertCashPlace(destinationName, accountRepository, 'toAccount');
+  const destination = assertKnownPlace(destinationName, accountRepository, 'toAccount');
   if (source.name === destination.name) {
     throw new Error('transfer must use two different places');
   }

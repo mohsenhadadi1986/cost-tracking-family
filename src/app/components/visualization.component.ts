@@ -273,7 +273,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Credit card due</h3>
           <p class="overview-card__value amount-expense">{{ creditCardDueTotal() | currency }}</p>
-          <p class="overview-card__hint">Next bank withdrawal. Do not add this as a second expense.</p>
+          <p class="overview-card__hint">On the billing day the bank transfer is logged. It is not a second expense.</p>
           <ul class="place-list" *ngIf="creditCardDues().length > 0">
             <li class="place-list__item" *ngFor="let due of creditCardDues()">
               <div class="place-list__row">

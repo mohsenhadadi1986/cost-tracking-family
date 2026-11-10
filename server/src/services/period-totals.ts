@@ -1,6 +1,6 @@
 import { AccountBreakdown, CreditCardDue, DailyTotal, TransactionSummaryResponse } from '../models/transaction-summary.model';
 import { Transaction } from '../models/transaction.model';
-import { todayIsoDate } from '../utils/credit-card';
+import { isExpenseCoveredByStatementTransfer, todayIsoDate } from '../utils/credit-card';
 import { markPlanOccurrences, plannedDuesBetween, PlanSchedule } from '../utils/plan-schedule';
 
 const MONTHLY_BUCKET_THRESHOLD_DAYS = 62;
@@ -303,7 +303,8 @@ export function getAccountBalances(
       } else if (
         transaction.type === 'expense' &&
         settlementAccountOf(transaction) === account &&
-        settlementDateOf(transaction) <= asOfDate
+        settlementDateOf(transaction) <= asOfDate &&
+        !isExpenseCoveredByStatementTransfer(transaction, transactions, accounts)
       ) {
         amount -= transaction.amount;
         related.push(transaction);

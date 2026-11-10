@@ -16,6 +16,7 @@ import { createTax730Router } from './routes/tax-730.routes';
 import { createTransactionsRouter } from './routes/transactions.routes';
 import { AccountService } from './services/account.service';
 import { CategoryService } from './services/category.service';
+import { CreditCardService } from './services/credit-card.service';
 import { PlanService } from './services/plan.service';
 import { createCursorDocumentAgent, type CursorDocumentAgent } from './services/cursor-document-agent';
 import { createOfflineDocumentAgent } from './services/offline-document-agent';
@@ -53,7 +54,14 @@ export function createApp(
   const accountService = new AccountService(accountRepository);
   const repository = new TransactionRepository(db, categoryRepository, accountRepository);
   const planService = new PlanService(planRepository, accountRepository, repository, categoryRepository);
-  const summaryService = new TransactionSummaryService(repository, accountRepository, planRepository, planService);
+  const creditCardService = new CreditCardService(repository, accountRepository);
+  const summaryService = new TransactionSummaryService(
+    repository,
+    accountRepository,
+    planRepository,
+    planService,
+    creditCardService
+  );
   const receiptScanService = new ReceiptScanService(categoryRepository, documentAgent);
   const tax730Service = new Tax730Service(new Tax730Repository(db), repository, documentAgent);
 
@@ -93,7 +101,10 @@ export function createApp(
   app.use('/api/categories', createCategoriesRouter(categoryService));
   app.use('/api/accounts', createAccountsRouter(accountService));
   app.use('/api/plans', createPlansRouter(planService));
-  app.use('/api/transactions', createTransactionsRouter(repository, summaryService, categoryRepository, planService));
+  app.use(
+    '/api/transactions',
+    createTransactionsRouter(repository, summaryService, categoryRepository, planService, creditCardService)
+  );
   app.use('/api/receipts', createReceiptsRouter(receiptScanService));
   app.use('/api/tax/730', createTax730Router(tax730Service));
 

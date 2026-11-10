@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { CategoryRepository } from '../repositories/category.repository';
 import type { TransactionRepository } from '../repositories/transaction.repository';
+import { CreditCardService } from '../services/credit-card.service';
 import { PlanService } from '../services/plan.service';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { parseTransactionFilterQuery } from '../validation/transaction-filter.validation';
@@ -14,7 +15,8 @@ export function createTransactionsRouter(
   repository: TransactionRepository,
   summaryService: TransactionSummaryService,
   categoryRepository: CategoryRepository,
-  planService: PlanService
+  planService: PlanService,
+  creditCardService: CreditCardService
 ): Router {
   const router = Router();
 
@@ -28,6 +30,8 @@ export function createTransactionsRouter(
    *     description: |
    *       Returns transactions for the Table tab, optionally filtered by query parameters.
    *       Results are ordered by date descending, then id descending.
+   *       Due credit-card statements are logged as bank-to-card transfers on the billing day
+   *       before the list is returned, so the Table tab shows the payoff on that date.
    *       An empty database returns an empty array.
    *     parameters:
    *       - in: query
@@ -76,6 +80,7 @@ export function createTransactionsRouter(
   router.get('/', (req, res) => {
     try {
       planService.settleDueInstallments();
+      creditCardService.settleDueStatements();
       const criteria = parseTransactionFilterQuery(req.query, categoryRepository);
       res.status(200).json(repository.findFiltered(criteria));
     } catch (error) {

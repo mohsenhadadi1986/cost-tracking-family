@@ -7,6 +7,7 @@ import { AccountRepository } from '../repositories/account.repository';
 import { CategoryRepository } from '../repositories/category.repository';
 import { PlanRepository } from '../repositories/plan.repository';
 import { TransactionRepository } from '../repositories/transaction.repository';
+import { CreditCardService } from '../services/credit-card.service';
 import { PlanService } from '../services/plan.service';
 import { TransactionSummaryService } from '../services/transaction-summary.service';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
@@ -27,7 +28,14 @@ try {
   const planRepository = new PlanRepository(db);
   const repository = new TransactionRepository(db, categoryRepository, accountRepository);
   const planService = new PlanService(planRepository, accountRepository, repository, categoryRepository);
-  const summaryService = new TransactionSummaryService(repository, accountRepository, planRepository, planService);
+  const creditCardService = new CreditCardService(repository, accountRepository);
+  const summaryService = new TransactionSummaryService(
+    repository,
+    accountRepository,
+    planRepository,
+    planService,
+    creditCardService
+  );
 
   const seeded = repository.findAll();
   assert.equal(seeded.length, MOCK_TRANSACTIONS.length, 'seed should load mock transactions');

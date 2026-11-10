@@ -284,6 +284,7 @@ import {
                 <td data-label="Description">{{transaction.description}}</td>
                 <td data-label="Actions">
                   <app-button
+                    *ngIf="canEdit(transaction)"
                     type="button"
                     variant="secondary"
                     size="sm"
@@ -633,6 +634,16 @@ export class TableComponent {
       (transaction.settlementDate !== transaction.date ||
         transaction.settlementAccount !== transaction.account)
     );
+  }
+
+  canEdit(transaction: Transaction): boolean {
+    if (transaction.type !== 'transfer' || !transaction.toAccount) {
+      return true;
+    }
+
+    return !this.accountService
+      .getAccounts()()
+      .some(account => account.name === transaction.toAccount && account.kind === 'credit');
   }
 
   onSearchChange(value: string) {
