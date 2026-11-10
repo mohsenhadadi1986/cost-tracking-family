@@ -214,8 +214,8 @@ describe('Plan API integration', () => {
       amount: 121.25,
       account: DEFAULT_ACCOUNT,
       billingDay: 20,
-      startDate: '2026-09-30',
-      endDate: '2026-09-30',
+      startDate: '2026-12-31',
+      endDate: '2026-12-31',
       paymentCount: null,
     });
 
@@ -225,11 +225,11 @@ describe('Plan API integration', () => {
 
     const summary = await request(app)
       .get('/api/transactions/summary')
-      .query({ startDate: '2026-09-01', endDate: '2026-09-30' });
+      .query({ startDate: '2026-12-01', endDate: '2026-12-31' });
 
     const bill = summary.body.plannedDues.find((due: { name: string }) => due.name === 'Electricity bill');
     assert.ok(bill);
-    assert.equal(bill.dueDate, '2026-09-30');
+    assert.equal(bill.dueDate, '2026-12-31');
     assert.equal(bill.amount, 121.25);
   });
 

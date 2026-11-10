@@ -127,6 +127,7 @@ export type ButtonType = 'button' | 'submit' | 'reset';
     }
 
     @media (max-width: 768px) {
+      .btn--sm,
       .btn--md,
       .btn--lg {
         min-height: 44px;

@@ -65,7 +65,15 @@ let nextTransactionTypeSelectId = 0;
 
     @media (max-width: 768px) {
       .transaction-type-select__group app-button {
+        flex: 1 1 0;
+        min-width: 0;
         min-height: 44px;
+      }
+
+      .transaction-type-select__group app-button .btn {
+        width: 100%;
+        padding-left: var(--space-sm);
+        padding-right: var(--space-sm);
       }
     }
   `]

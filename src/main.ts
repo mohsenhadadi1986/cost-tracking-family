@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, DEFAULT_CURRENCY_CODE, inject, OnInit } from '@angular/core';
+import { DISPLAY_CURRENCY } from './app/utils/format-currency';
 import { CommonModule } from '@angular/common';
 import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
@@ -38,8 +39,8 @@ import { ApiHealthService } from './app/services/api-health.service';
 
         <div class="content-main" [class.content-main--table]="activeTab === 'Table'">
           <div [ngSwitch]="activeTab">
-            <app-table *ngSwitchCase="'Table'"></app-table>
             <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
+            <app-table *ngSwitchCase="'Table'"></app-table>
             <app-charts *ngSwitchCase="'Charts'"></app-charts>
             <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
             <app-categories *ngSwitchCase="'Settings'"></app-categories>
@@ -51,13 +52,13 @@ import { ApiHealthService } from './app/services/api-health.service';
 })
 export class App implements OnInit {
   readonly tabs = [
-    { id: 'Table', label: 'Table', shortLabel: 'Table' },
     { id: 'Visualization', label: 'Overview', shortLabel: 'Overview' },
+    { id: 'Table', label: 'Table', shortLabel: 'Table' },
     { id: 'Charts', label: 'Charts', shortLabel: 'Charts' },
     { id: 'Insert Data', label: 'Insert Data', shortLabel: 'Add' },
     { id: 'Settings', label: 'Settings', shortLabel: 'Settings' },
   ] as const;
-  activeTab: 'Table' | 'Visualization' | 'Charts' | 'Insert Data' | 'Settings' = 'Table';
+  activeTab: 'Table' | 'Visualization' | 'Charts' | 'Insert Data' | 'Settings' = 'Visualization';
 
   private readonly apiHealth = inject(ApiHealthService);
 
@@ -70,5 +71,8 @@ export class App implements OnInit {
 }
 
 bootstrapApplication(App, {
-  providers: [provideHttpClient()],
+  providers: [
+    provideHttpClient(),
+    { provide: DEFAULT_CURRENCY_CODE, useValue: DISPLAY_CURRENCY },
+  ],
 });

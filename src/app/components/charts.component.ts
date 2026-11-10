@@ -1,5 +1,6 @@
 import { Component, computed } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
+import { formatCurrency } from '../utils/format-currency';
 import { ChartOptions } from 'chart.js';
 import { NgChartsModule } from 'ng2-charts';
 import { FilterBannerComponent } from './filter-banner.component';
@@ -12,7 +13,7 @@ import { hasCustomSidebarDates, OverviewInterval } from '../utils/overview-inter
   selector: 'app-charts',
   standalone: true,
   imports: [CommonModule, NgChartsModule, FilterBannerComponent, ButtonComponent],
-  providers: [CurrencyPipe, DatePipe],
+  providers: [DatePipe],
   template: `
     <h2 class="page-title">Charts</h2>
     <app-filter-banner title="Charts reflect active filters" />
@@ -168,7 +169,7 @@ export class ChartsComponent {
             return (chart.data.labels ?? []).map((label, index) => {
               const value = values[index] ?? 0;
               const percent = total > 0 ? Math.round((value / total) * 100) : 0;
-              const formatted = this.currencyPipe.transform(value) ?? String(value);
+              const formatted = formatCurrency(value);
               return {
                 text: `${label}: ${formatted} (${percent}%)`,
                 fillStyle: colors[index],
@@ -186,7 +187,7 @@ export class ChartsComponent {
             const value = Number(context.parsed);
             const total = (context.dataset.data as number[]).reduce((sum, n) => sum + Number(n), 0);
             const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-            const formatted = this.currencyPipe.transform(value) ?? String(value);
+            const formatted = formatCurrency(value);
             return `${formatted} (${percentage}%)`;
           }
         }
@@ -200,14 +201,26 @@ export class ChartsComponent {
     plugins: {
       legend: {
         position: 'bottom'
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const value = Number(context.parsed.y);
+            const series = context.dataset.label ?? '';
+            return series ? `${series}: ${formatCurrency(value)}` : formatCurrency(value);
+          }
+        }
       }
     },
     scales: {
       y: {
         beginAtZero: true,
+        ticks: {
+          callback: (value) => formatCurrency(Number(value))
+        },
         title: {
           display: true,
-          text: 'Amount'
+          text: 'Amount (€)'
         }
       },
       x: {
@@ -225,7 +238,6 @@ export class ChartsComponent {
 
   constructor(
     private transactionService: TransactionService,
-    private currencyPipe: CurrencyPipe,
     private datePipe: DatePipe
   ) {}
 

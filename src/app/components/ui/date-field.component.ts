@@ -152,6 +152,13 @@ let nextId = 0;
     .date-field__hint--error {
       color: var(--color-error-text);
     }
+
+    @media (max-width: 480px) {
+      .date-field__input {
+        font-size: 16px;
+        min-height: 44px;
+      }
+    }
   `]
 })
 export class DateFieldComponent implements ControlValueAccessor {

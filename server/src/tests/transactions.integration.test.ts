@@ -7,8 +7,12 @@ import request from 'supertest';
 import { createApp } from '../app';
 import { DEFAULT_ACCOUNT, DEFAULT_CREDIT_CARD } from '../constants/accounts';
 import { MOCK_TRANSACTIONS } from '../data/mock-transactions';
+import { AccountRepository } from '../repositories/account.repository';
+import { CategoryRepository } from '../repositories/category.repository';
+import { TransactionRepository } from '../repositories/transaction.repository';
+import { CreditCardService } from '../services/credit-card.service';
 import { buildSummary } from '../services/period-totals';
-import { creditCardSettlementDate } from '../utils/credit-card';
+import { creditCardSettlementDate, creditCardStatementDescription, todayIsoDate } from '../utils/credit-card';
 import type { TransactionFilterCriteria } from '../validation/transaction-filter.validation';
 import type Database from 'better-sqlite3';
 
@@ -148,6 +152,118 @@ describe('Transaction API integration', () => {
       assert.equal(dueSummary.body.creditCardDues.length, 1);
       assert.equal(dueSummary.body.creditCardDues[0].settlementDate, dueDate);
       assert.equal(dueSummary.body.creditCardDues[0].amount, 40);
+    });
+
+    it('logs a 162.03 statement transfer on the billing day and deducts the bank once', async () => {
+      const { app } = createTestApp(false);
+      const asOf = todayIsoDate();
+      const billingDay = Math.min(Number.parseInt(asOf.slice(8), 10), 28);
+      const [year, month] = asOf.split('-').map(part => Number.parseInt(part, 10));
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      const purchaseDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-12`;
+      const dueDate = creditCardSettlementDate(purchaseDate, billingDay);
+      const cardName = 'Statement Test Card';
+
+      const card = await request(app).post('/api/accounts').send({
+        name: cardName,
+        kind: 'credit',
+        billingDay,
+        settlementAccount: DEFAULT_ACCOUNT,
+      });
+      assert.equal(card.status, 201);
+
+      const groceries = await request(app).post('/api/transactions').send({
+        date: purchaseDate,
+        category: 'Food',
+        type: 'expense',
+        amount: 100,
+        description: 'October groceries',
+        account: cardName,
+      });
+      assert.equal(groceries.status, 201);
+      assert.equal(groceries.body.settlementDate, dueDate);
+
+      const fuel = await request(app).post('/api/transactions').send({
+        date: purchaseDate,
+        category: 'Fuel',
+        type: 'expense',
+        amount: 62.03,
+        description: 'October fuel',
+        account: cardName,
+      });
+      assert.equal(fuel.status, 201);
+
+      const salary = await request(app).post('/api/transactions').send({
+        date: purchaseDate,
+        category: 'Salary',
+        type: 'income',
+        amount: 1000,
+        description: 'Pay',
+        account: DEFAULT_ACCOUNT,
+      });
+      assert.equal(salary.status, 201);
+
+      const list = await request(app).get('/api/transactions').query({ startDate: dueDate, endDate: dueDate });
+      assert.equal(list.status, 200);
+      const payoffs = list.body.filter((row: { type: string; toAccount: string | null }) =>
+        row.type === 'transfer' && row.toAccount === cardName
+      );
+      assert.equal(payoffs.length, 1);
+      assert.equal(payoffs[0].date, dueDate);
+      assert.equal(payoffs[0].amount, 162.03);
+      assert.equal(payoffs[0].account, DEFAULT_ACCOUNT);
+      assert.equal(payoffs[0].description, creditCardStatementDescription(cardName));
+
+      const again = await request(app).get('/api/transactions').query({ startDate: dueDate, endDate: dueDate });
+      assert.equal(
+        again.body.filter((row: { type: string; toAccount: string | null }) =>
+          row.type === 'transfer' && row.toAccount === cardName
+        ).length,
+        1
+      );
+
+      const summary = await request(app).get('/api/transactions/summary');
+      assert.equal(summary.status, 200);
+      assert.equal(summary.body.totalExpense, 162.03);
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === DEFAULT_ACCOUNT)?.amount,
+        837.97
+      );
+      assert.equal(summary.body.currentBalance, 837.97);
+      assert.equal(
+        summary.body.accountBalances.find((row: { account: string }) => row.account === cardName)?.amount,
+        0
+      );
+      assert.equal(summary.body.creditCardDues.length, 0);
+    });
+
+    it('does not log the statement transfer before the Europe/Rome billing day', async () => {
+      const { db } = createTestApp(false);
+      const categoryRepository = new CategoryRepository(db);
+      const accountRepository = new AccountRepository(db);
+      const repository = new TransactionRepository(db, categoryRepository, accountRepository);
+      const creditCardService = new CreditCardService(repository, accountRepository);
+
+      repository.create({
+        date: '2026-10-15',
+        category: 'Food',
+        type: 'expense',
+        amount: 162.03,
+        description: 'October card spend',
+        account: DEFAULT_CREDIT_CARD,
+      });
+
+      creditCardService.settleDueStatements('2026-11-09');
+      assert.equal(repository.findAll().filter(row => row.type === 'transfer').length, 0);
+
+      creditCardService.settleDueStatements('2026-11-10');
+      const payoffs = repository.findAll().filter(row => row.type === 'transfer');
+      assert.equal(payoffs.length, 1);
+      assert.equal(payoffs[0]?.date, '2026-11-10');
+      assert.equal(payoffs[0]?.amount, 162.03);
+      assert.equal(payoffs[0]?.account, DEFAULT_ACCOUNT);
+      assert.equal(payoffs[0]?.toAccount, DEFAULT_CREDIT_CARD);
     });
 
     it('moves cash between places without counting it as income or expense', async () => {
@@ -325,6 +441,13 @@ describe('Transaction API integration', () => {
       });
       assert.equal(creditCard.status, 400);
       assert.match(creditCard.body.error, /not credit cards/);
+
+      const payCard = await request(app).post('/api/transactions').send({
+        ...base,
+        toAccount: DEFAULT_CREDIT_CARD,
+      });
+      assert.equal(payCard.status, 201);
+      assert.equal(payCard.body.toAccount, DEFAULT_CREDIT_CARD);
     });
 
     it('returns 400 for invalid type', async () => {

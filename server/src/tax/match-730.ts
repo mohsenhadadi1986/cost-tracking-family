@@ -8,6 +8,7 @@ import type {
   TaxMatchRow,
 } from '../models/tax-730.model';
 import type { TaxRule, TaxRulesCatalog } from './rules/schema';
+import { formatCurrency } from '../utils/format-currency';
 
 const BABY_SCHOOL_REVIEW =
   'Split Baby school between asilo nido (code 33) and scuola (code 12) before filing.';
@@ -34,7 +35,7 @@ export function match730(input: {
 
   if (reddito > input.catalog.incomeLimits.riordinoStart) {
     warnings.push(
-      `Reddito ${formatEuro(reddito)} is above €${input.catalog.incomeLimits.riordinoStart.toLocaleString('it-IT')}. Apply the 2026 riordino delle detrazioni with the commercialista.`
+      `Reddito ${formatCurrency(reddito)} is above ${formatCurrency(input.catalog.incomeLimits.riordinoStart)}. Apply the 2026 riordino delle detrazioni with the commercialista.`
     );
   }
 
@@ -326,8 +327,4 @@ function sum(values: number[]): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function formatEuro(value: number): string {
-  return `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

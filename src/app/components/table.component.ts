@@ -1,5 +1,7 @@
 import { Component, computed, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { EurPipe } from '../pipes/eur.pipe';
+import { formatCurrency } from '../utils/format-currency';
 import { FormsModule } from '@angular/forms';
 import { FilterBannerComponent } from './filter-banner.component';
 import { ButtonComponent } from './ui/button.component';
@@ -32,7 +34,8 @@ import {
     CategorySelectComponent,
     DateFieldComponent,
     GlyphComponent,
-    TransactionTypeSelectComponent
+    TransactionTypeSelectComponent,
+    EurPipe,
   ],
   providers: [DatePipe],
   template: `
@@ -279,11 +282,12 @@ import {
                   [class.amount-income]="transaction.type === 'income'"
                   [class.amount-expense]="transaction.type === 'expense'"
                   [class.amount-transfer]="transaction.type === 'transfer'">
-                  {{transaction.amount | currency}}
+                  {{transaction.amount | eur}}
                 </td>
                 <td data-label="Description">{{transaction.description}}</td>
                 <td data-label="Actions">
                   <app-button
+                    *ngIf="canEdit(transaction)"
                     type="button"
                     variant="secondary"
                     size="sm"
@@ -332,11 +336,11 @@ import {
         </span>
         <span class="table-footer__item">
           <span class="table-footer__label">Income</span>
-          <span class="table-footer__value amount-income">{{ footerSummary().totalIncome | currency }}</span>
+          <span class="table-footer__value amount-income">{{ footerSummary().totalIncome | eur }}</span>
         </span>
         <span class="table-footer__item">
           <span class="table-footer__label">Expense</span>
-          <span class="table-footer__value amount-expense">{{ footerSummary().totalExpense | currency }}</span>
+          <span class="table-footer__value amount-expense">{{ footerSummary().totalExpense | eur }}</span>
         </span>
         <span class="table-footer__item">
           <span class="table-footer__label">Net</span>
@@ -344,7 +348,7 @@ import {
             class="table-footer__value"
             [class.amount-income]="footerSummary().netBalance >= 0"
             [class.amount-expense]="footerSummary().netBalance < 0">
-            {{ footerSummary().netBalance | currency }}
+            {{ footerSummary().netBalance | eur }}
           </span>
         </span>
       </div>
@@ -389,6 +393,19 @@ import {
       outline-offset: -2px;
     }
 
+    @media (max-width: 992px) {
+      .table-transfer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      .table-transfer__arrow {
+        margin-left: 0.65rem;
+        transform: rotate(90deg);
+      }
+    }
+
     @media (max-width: 768px) {
       .settings-actions {
         display: grid;
@@ -397,6 +414,11 @@ import {
 
       .settings-actions app-button:first-child {
         grid-column: 1 / -1;
+      }
+
+      .settings-actions app-button,
+      .settings-actions app-button .btn {
+        width: 100%;
       }
     }
   `]
@@ -593,7 +615,7 @@ export class TableComponent {
   }
 
   deleteTransaction(transaction: Transaction) {
-    const confirmed = window.confirm(`Delete this ${transaction.type} of ${transaction.amount} (${transaction.description})?`);
+    const confirmed = window.confirm(`Delete this ${transaction.type} of ${formatCurrency(transaction.amount)} (${transaction.description})?`);
     if (!confirmed) {
       return;
     }
@@ -633,6 +655,16 @@ export class TableComponent {
       (transaction.settlementDate !== transaction.date ||
         transaction.settlementAccount !== transaction.account)
     );
+  }
+
+  canEdit(transaction: Transaction): boolean {
+    if (transaction.type !== 'transfer' || !transaction.toAccount) {
+      return true;
+    }
+
+    return !this.accountService
+      .getAccounts()()
+      .some(account => account.name === transaction.toAccount && account.kind === 'credit');
   }
 
   onSearchChange(value: string) {

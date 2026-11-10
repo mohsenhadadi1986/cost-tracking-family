@@ -1,5 +1,6 @@
 import { Component, computed, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { EurPipe } from '../pipes/eur.pipe';
 import { FormsModule } from '@angular/forms';
 import { FilterBannerComponent } from './filter-banner.component';
 import { ButtonComponent } from './ui/button.component';
@@ -24,6 +25,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
     CategorySelectComponent,
     DateFieldComponent,
     GlyphComponent,
+    EurPipe,
   ],
   providers: [DatePipe],
   template: `
@@ -79,7 +81,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
             class="overview-card__value"
             [class.amount-income]="displayBalance() >= 0"
             [class.amount-expense]="displayBalance() < 0">
-            {{ displayBalance() | currency }}
+            {{ displayBalance() | eur }}
           </p>
           <p class="overview-card__hint">{{ balanceHint() }}</p>
           <ul class="place-list" *ngIf="accountBalances().length > 0">
@@ -94,7 +96,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   class="place-list__amount"
                   [class.amount-income]="place.amount >= 0"
                   [class.amount-expense]="place.amount < 0">
-                  {{ place.amount | currency }}
+                  {{ place.amount | eur }}
                 </span>
               </div>
               <p class="place-list__meta">{{ placeMeta(place) }}</p>
@@ -107,7 +109,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
 
         <article class="overview-card overview-card--detail" *ngIf="receivableBalances().length > 0">
           <h3 class="overview-card__label">Lent out</h3>
-          <p class="overview-card__value amount-income">{{ receivableTotal() | currency }}</p>
+          <p class="overview-card__value amount-income">{{ receivableTotal() | eur }}</p>
           <p class="overview-card__hint">Still yours, but not in a wallet until they pay you back.</p>
           <ul class="place-list">
             <li class="place-list__item" *ngFor="let row of receivableBalances()">
@@ -119,14 +121,14 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                 <span
                   class="place-list__amount amount-income"
                   *ngIf="receivableBalances().length > 1 && (row.items?.length ?? 0) > 1">
-                  {{ row.amount | currency }}
+                  {{ row.amount | eur }}
                 </span>
               </div>
               <ul class="lend-list">
                 <li class="lend-list__item" *ngFor="let item of row.items; let itemIndex = index">
                   <div class="place-list__row">
                     <span class="lend-list__description">{{ item.description || row.account }}</span>
-                    <span class="place-list__amount amount-income">{{ item.amount | currency }}</span>
+                    <span class="place-list__amount amount-income">{{ item.amount | eur }}</span>
                   </div>
                   <p class="place-list__meta">{{ receivableItemMeta(item) }}</p>
                   <div class="place-list__actions" *ngIf="repaying() !== repaymentKey(row, item, itemIndex)">
@@ -176,7 +178,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                       [disabled]="submitting()">
                     </app-date-field>
                     <p class="repayment-form__hint">
-                      Still owed {{ item.amount | currency }} for this lend. This returns the money to the place you pick.
+                      Still owed {{ item.amount | eur }} for this lend. This returns the money to the place you pick.
                     </p>
                     <p *ngIf="repaymentError()" class="repayment-form__error">{{ repaymentError() }}</p>
                     <div class="repayment-form__actions">
@@ -200,7 +202,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
             class="overview-card__value"
             [class.amount-income]="availableThisMonth() >= 0"
             [class.amount-expense]="availableThisMonth() < 0">
-            {{ availableThisMonth() | currency }}
+            {{ availableThisMonth() | eur }}
           </p>
           <p class="overview-card__hint">
             Projected cash minus unpaid plans and card charges {{ monthPhrase() }}.
@@ -209,7 +211,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
 
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Income</h3>
-          <p class="overview-card__value amount-income">{{ summary().totalIncome | currency }}</p>
+          <p class="overview-card__value amount-income">{{ summary().totalIncome | eur }}</p>
           <p class="overview-card__hint">Received in this range, by place</p>
           <ul class="place-list" *ngIf="incomeByAccount().length > 0">
             <li class="place-list__item" *ngFor="let place of incomeByAccount()">
@@ -218,7 +220,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   <app-glyph set="place" [name]="place.account"></app-glyph>
                   {{ place.account }}
                 </span>
-                <span class="place-list__amount amount-income">{{ place.amount | currency }}</span>
+                <span class="place-list__amount amount-income">{{ place.amount | eur }}</span>
               </div>
               <p class="place-list__meta">{{ placeMeta(place, 'income') }}</p>
             </li>
@@ -230,7 +232,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
 
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Expenses</h3>
-          <p class="overview-card__value amount-expense">{{ summary().totalExpense | currency }}</p>
+          <p class="overview-card__value amount-expense">{{ summary().totalExpense | eur }}</p>
           <p class="overview-card__hint">Counted on the purchase date, including credit-card spend</p>
           <ul class="place-list" *ngIf="expenseByAccount().length > 0">
             <li class="place-list__item" *ngFor="let place of expenseByAccount()">
@@ -239,7 +241,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   <app-glyph set="place" [name]="place.account"></app-glyph>
                   {{ place.account }}
                 </span>
-                <span class="place-list__amount amount-expense">{{ place.amount | currency }}</span>
+                <span class="place-list__amount amount-expense">{{ place.amount | eur }}</span>
               </div>
               <p class="place-list__meta">{{ placeMeta(place, 'expense') }}</p>
             </li>
@@ -251,7 +253,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
 
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Planned {{ monthPhrase() }}</h3>
-          <p class="overview-card__value amount-expense">{{ plannedDueTotal() | currency }}</p>
+          <p class="overview-card__value amount-expense">{{ plannedDueTotal() | eur }}</p>
           <p class="overview-card__hint">Reserved until the due day. That day logs the payment and drops it from this list.</p>
           <ul class="place-list" *ngIf="plannedDues().length > 0">
             <li class="place-list__item" *ngFor="let due of plannedDues()">
@@ -260,7 +262,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   <app-glyph set="category" [name]="due.name"></app-glyph>
                   {{ due.name }}
                 </span>
-                <span class="place-list__amount amount-expense">{{ due.amount | currency }}</span>
+                <span class="place-list__amount amount-expense">{{ due.amount | eur }}</span>
               </div>
               <p class="place-list__meta">{{ planMeta(due) }}</p>
             </li>
@@ -272,8 +274,8 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
 
         <article class="overview-card overview-card--detail">
           <h3 class="overview-card__label">Credit card due</h3>
-          <p class="overview-card__value amount-expense">{{ creditCardDueTotal() | currency }}</p>
-          <p class="overview-card__hint">Next bank withdrawal. Do not add this as a second expense.</p>
+          <p class="overview-card__value amount-expense">{{ creditCardDueTotal() | eur }}</p>
+          <p class="overview-card__hint">On the billing day the bank transfer is logged. It is not a second expense.</p>
           <ul class="place-list" *ngIf="creditCardDues().length > 0">
             <li class="place-list__item" *ngFor="let due of creditCardDues()">
               <div class="place-list__row">
@@ -281,7 +283,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
                   <app-glyph set="place" [name]="due.account"></app-glyph>
                   {{ due.account }}
                 </span>
-                <span class="place-list__amount amount-expense">{{ due.amount | currency }}</span>
+                <span class="place-list__amount amount-expense">{{ due.amount | eur }}</span>
               </div>
               <p class="place-list__meta">{{ dueMeta(due) }}</p>
             </li>
@@ -300,7 +302,7 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
               <app-glyph set="category" [name]="source.name"></app-glyph>
               {{ source.name }}
             </h4>
-            <p class="overview-card__value amount-income">{{ source.amount | currency }}</p>
+            <p class="overview-card__value amount-income">{{ source.amount | eur }}</p>
           </article>
         </div>
       </section>
@@ -353,6 +355,19 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
     .lend-list__description {
       font-weight: var(--font-weight-medium);
       min-width: 0;
+    }
+
+    @media (max-width: 768px) {
+      .repayment-form__actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .repayment-form__actions app-button,
+      .repayment-form__actions app-button .btn {
+        display: block;
+        width: 100%;
+      }
     }
   `]
 })

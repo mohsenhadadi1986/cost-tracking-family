@@ -6,6 +6,7 @@ import { GlyphComponent } from './ui/glyph.component';
 import { Tax730Service } from '../services/tax-730.service';
 import { Tax730YearOption } from '../models/tax-730.model';
 import { buildDeductionRows, deductionTotals } from '../utils/tax-730-view';
+import { formatCurrencyOrDash } from '../utils/format-currency';
 
 @Component({
   selector: 'app-tax-730',
@@ -289,6 +290,22 @@ import { buildDeductionRows, deductionTotals } from '../utils/tax-730-view';
       .tax-730-table table {
         min-width: 100%;
       }
+
+      .tax-730-table tbody tr:not(.tax-730-detail-row) {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .tax-730-table td[data-label='Category'] {
+        grid-column: 1 / -1;
+      }
+
+      .tax-730-table .tax-730-detail-row td {
+        grid-column: 1 / -1;
+      }
+
+      .tax-730-expenses li {
+        flex-wrap: wrap;
+      }
     }
   `]
 })
@@ -382,9 +399,6 @@ export class Tax730Component implements OnInit {
   }
 
   euro(value: number | undefined | null): string {
-    if (value == null) {
-      return '—';
-    }
-    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    return formatCurrencyOrDash(value);
   }
 }

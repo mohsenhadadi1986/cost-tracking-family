@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import type { TaxChangelog } from './rules/schema';
 import type { ParsedCu, TaxFilingResponse, TaxMatchResult } from '../models/tax-730.model';
+import { formatCurrencyOrDash } from '../utils/format-currency';
 
 export function buildExportPayload(filing: TaxFilingResponse) {
   return {
@@ -114,8 +115,8 @@ function addCuSheet(workbook: ExcelJS.Workbook, cu: ParsedCu | null, filing: Tax
     { field: 'Income year', value: filing.incomeYear },
     { field: 'Official CU', value: filing.officialCuLabel },
     { field: 'Codice fiscale', value: cu?.codiceFiscale ?? '' },
-    { field: 'Reddito lavoro dipendente', value: cu?.redditoLavoroDipendente ?? '' },
-    { field: 'Ritenute', value: cu?.ritenute ?? '' },
+    { field: 'Reddito lavoro dipendente', value: formatCurrencyOrDash(cu?.redditoLavoroDipendente) },
+    { field: 'Ritenute', value: formatCurrencyOrDash(cu?.ritenute) },
     { field: 'Confidence', value: cu?.confidence ?? '' },
     { field: 'Dependents', value: (cu?.dependents ?? []).map(item => `${item.name}${item.age != null ? ` (${item.age})` : ''}`).join(', ') },
   ]);
@@ -146,6 +147,8 @@ function addQuadroSheet(workbook: ExcelJS.Workbook, match: TaxMatchResult | null
       warnings: row.warnings.join(' | '),
     });
   }
+
+  applyEuroNumberFormat(sheet, ['gross', 'eligible', 'detrazione']);
 }
 
 function addTransactionsSheet(
@@ -172,11 +175,16 @@ function addTransactionsSheet(
   for (const row of rows) {
     sheet.addRow(row);
   }
+
+  applyEuroNumberFormat(sheet, ['grossAmount', 'eligibleAmount']);
 }
 
 function money(value: number | undefined): string {
-  if (value == null) {
-    return '—';
+  return formatCurrencyOrDash(value);
+}
+
+function applyEuroNumberFormat(sheet: ExcelJS.Worksheet, keys: string[]): void {
+  for (const key of keys) {
+    sheet.getColumn(key).numFmt = '#,##0.00 "€"';
   }
-  return `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

@@ -211,6 +211,16 @@ let nextCategorySelectId = 0;
       .category-select__option {
         min-height: 44px;
       }
+
+      .category-select__panel {
+        max-height: min(50vh, 320px);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .category-select__trigger {
+        font-size: 16px;
+      }
     }
   `]
 })

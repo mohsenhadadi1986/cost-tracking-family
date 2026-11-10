@@ -14,6 +14,7 @@ import { TransactionService } from '../services/transaction.service';
 import { DEFAULT_ACCOUNT } from '../constants/accounts';
 import { TRANSFER_CATEGORY } from '../models/transaction.model';
 import { creditCardSettlementDate } from '../utils/credit-card';
+import { formatCurrency } from '../utils/format-currency';
 
 @Component({
   selector: 'app-insert-data',
@@ -423,7 +424,7 @@ function buildScanHint(result: ReceiptScanResponse): string {
   }
 
   if (typeof result.amount === 'number') {
-    parts.push(`amount ${result.amount}`);
+    parts.push(`amount ${formatCurrency(result.amount)}`);
   }
 
   if (result.description) {

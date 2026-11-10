@@ -105,6 +105,53 @@ describe('period-totals', () => {
     assert.equal(afterDue.availableThisMonth, 60);
   });
 
+  it('does not deduct the card statement twice when the bank transfer is logged', () => {
+    const purchase = {
+      date: '2026-10-15',
+      category: 'Food',
+      type: 'expense' as const,
+      amount: 162.03,
+      account: 'Credit Card',
+      settlementDate: '2026-11-10',
+      settlementAccount: 'Bank 1',
+    };
+    const payoff = {
+      date: '2026-11-10',
+      category: 'Transfer',
+      type: 'transfer' as const,
+      amount: 162.03,
+      account: 'Bank 1',
+      toAccount: 'Credit Card',
+    };
+    const salary = {
+      date: '2026-10-01',
+      category: 'Salary',
+      type: 'income' as const,
+      amount: 1000,
+      account: 'Bank 1',
+    };
+    const accounts = [
+      { name: 'Bank 1', kind: 'wallet' as const },
+      { name: 'Credit Card', kind: 'credit' as const },
+    ];
+
+    const virtual = buildSummary([salary, purchase], '2026-10-01', '2026-11-30', {
+      accounts,
+      asOfDate: '2026-11-10',
+    });
+    const logged = buildSummary([salary, purchase, payoff], '2026-10-01', '2026-11-30', {
+      accounts,
+      asOfDate: '2026-11-10',
+    });
+
+    assert.equal(virtual.totalExpense, 162.03);
+    assert.equal(logged.totalExpense, 162.03);
+    assert.equal(virtual.currentBalance, 837.97);
+    assert.equal(logged.currentBalance, 837.97);
+    assert.equal(logged.accountBalances.find(row => row.account === 'Bank 1')?.amount, 837.97);
+    assert.equal(logged.accountBalances.find(row => row.account === 'Credit Card')?.amount, 0);
+  });
+
   it('moves money between places without changing income or expenses', () => {
     const transactions = [
       {
