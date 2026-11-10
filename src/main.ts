@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, DEFAULT_CURRENCY_CODE, inject, OnInit } from '@angular/core';
+import { DISPLAY_CURRENCY } from './app/utils/format-currency';
 import { CommonModule } from '@angular/common';
 import { TableComponent } from './app/components/table.component';
 import { VisualizationComponent } from './app/components/visualization.component';
@@ -70,5 +71,8 @@ export class App implements OnInit {
 }
 
 bootstrapApplication(App, {
-  providers: [provideHttpClient()],
+  providers: [
+    provideHttpClient(),
+    { provide: DEFAULT_CURRENCY_CODE, useValue: DISPLAY_CURRENCY },
+  ],
 });

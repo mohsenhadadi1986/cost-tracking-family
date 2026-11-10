@@ -6,6 +6,7 @@ import { GlyphComponent } from './ui/glyph.component';
 import { Tax730Service } from '../services/tax-730.service';
 import { Tax730YearOption } from '../models/tax-730.model';
 import { buildDeductionRows, deductionTotals } from '../utils/tax-730-view';
+import { formatCurrencyOrDash } from '../utils/format-currency';
 
 @Component({
   selector: 'app-tax-730',
@@ -398,9 +399,6 @@ export class Tax730Component implements OnInit {
   }
 
   euro(value: number | undefined | null): string {
-    if (value == null) {
-      return '—';
-    }
-    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+    return formatCurrencyOrDash(value);
   }
 }
