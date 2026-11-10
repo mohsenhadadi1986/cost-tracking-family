@@ -289,6 +289,22 @@ import { buildDeductionRows, deductionTotals } from '../utils/tax-730-view';
       .tax-730-table table {
         min-width: 100%;
       }
+
+      .tax-730-table tbody tr:not(.tax-730-detail-row) {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .tax-730-table td[data-label='Category'] {
+        grid-column: 1 / -1;
+      }
+
+      .tax-730-table .tax-730-detail-row td {
+        grid-column: 1 / -1;
+      }
+
+      .tax-730-expenses li {
+        flex-wrap: wrap;
+      }
     }
   `]
 })

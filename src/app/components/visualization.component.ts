@@ -354,6 +354,19 @@ import { hasCustomSidebarDates, OverviewInterval, currentMonthKey } from '../uti
       font-weight: var(--font-weight-medium);
       min-width: 0;
     }
+
+    @media (max-width: 768px) {
+      .repayment-form__actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .repayment-form__actions app-button,
+      .repayment-form__actions app-button .btn {
+        display: block;
+        width: 100%;
+      }
+    }
   `]
 })
 export class VisualizationComponent {

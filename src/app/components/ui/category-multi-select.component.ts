@@ -242,6 +242,12 @@ let nextCategoryMultiSelectId = 0;
         min-height: 44px;
       }
     }
+
+    @media (max-width: 480px) {
+      .category-multi-select__trigger {
+        font-size: 16px;
+      }
+    }
   `]
 })
 export class CategoryMultiSelectComponent implements ControlValueAccessor {

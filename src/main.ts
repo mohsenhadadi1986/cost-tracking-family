@@ -38,8 +38,8 @@ import { ApiHealthService } from './app/services/api-health.service';
 
         <div class="content-main" [class.content-main--table]="activeTab === 'Table'">
           <div [ngSwitch]="activeTab">
-            <app-table *ngSwitchCase="'Table'"></app-table>
             <app-visualization *ngSwitchCase="'Visualization'"></app-visualization>
+            <app-table *ngSwitchCase="'Table'"></app-table>
             <app-charts *ngSwitchCase="'Charts'"></app-charts>
             <app-insert-data *ngSwitchCase="'Insert Data'"></app-insert-data>
             <app-categories *ngSwitchCase="'Settings'"></app-categories>
@@ -51,13 +51,13 @@ import { ApiHealthService } from './app/services/api-health.service';
 })
 export class App implements OnInit {
   readonly tabs = [
-    { id: 'Table', label: 'Table', shortLabel: 'Table' },
     { id: 'Visualization', label: 'Overview', shortLabel: 'Overview' },
+    { id: 'Table', label: 'Table', shortLabel: 'Table' },
     { id: 'Charts', label: 'Charts', shortLabel: 'Charts' },
     { id: 'Insert Data', label: 'Insert Data', shortLabel: 'Add' },
     { id: 'Settings', label: 'Settings', shortLabel: 'Settings' },
   ] as const;
-  activeTab: 'Table' | 'Visualization' | 'Charts' | 'Insert Data' | 'Settings' = 'Table';
+  activeTab: 'Table' | 'Visualization' | 'Charts' | 'Insert Data' | 'Settings' = 'Visualization';
 
   private readonly apiHealth = inject(ApiHealthService);
 

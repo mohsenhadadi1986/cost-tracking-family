@@ -390,6 +390,19 @@ import {
       outline-offset: -2px;
     }
 
+    @media (max-width: 992px) {
+      .table-transfer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      .table-transfer__arrow {
+        margin-left: 0.65rem;
+        transform: rotate(90deg);
+      }
+    }
+
     @media (max-width: 768px) {
       .settings-actions {
         display: grid;
@@ -398,6 +411,11 @@ import {
 
       .settings-actions app-button:first-child {
         grid-column: 1 / -1;
+      }
+
+      .settings-actions app-button,
+      .settings-actions app-button .btn {
+        width: 100%;
       }
     }
   `]

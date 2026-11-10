@@ -63,8 +63,17 @@ let nextTypeFilterId = 0;
     }
 
     @media (max-width: 768px) {
+      .transaction-type-filter__group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
       .transaction-type-filter__group app-button {
         min-height: 44px;
+      }
+
+      .transaction-type-filter__group app-button .btn {
+        width: 100%;
       }
     }
   `]
